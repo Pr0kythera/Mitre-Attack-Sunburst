@@ -1,5 +1,9 @@
 # MITRE ATT&CK v18 Detection Depth Map - Multi-Layer Edition
 
+## Preamble
+
+This tool is very much POC and not security tested or ready for enterprise use. My intention is to add functionality and improve it over time to improve usability and robustness. Currently heavily relies on LLM generated codebase as I wanted to quickly iterate on ideas to get a functioning POC ready.
+
 ## Overview
 
 This tool provides native MITRE ATT&CK v18 visualization with **multi-layer detection import** capability, designed specifically for detection engineers working with modern SIEM CI/CD pipelines.
@@ -202,53 +206,6 @@ If your layer activates AN1336 but not AN1338, the visualization shows:
 
 This prevents the "false positive coverage" problem where you think T1110 is covered, but it's only covered on-prem.
 
-## Exporting Detection Layers from SIEMs
-
-### Microsoft Sentinel (KQL)
-
-```kusto
-// Query to export Sentinel analytics rules to v18 format
-AlertRule
-| where Enabled == true
-| project 
-    ruleName = DisplayName,
-    ruleId = Name,
-    tactics = split(Tactics, ','),
-    techniques = split(Techniques, ','),
-    query = Query
-// Post-process to map to Detection Strategies and Analytics
-// (Manual mapping required based on rule logic)
-```
-
-### Splunk
-
-```python
-# Python script using Splunk SDK
-import splunklib.client as client
-
-service = client.connect(...)
-saved_searches = service.saved_searches
-
-for search in saved_searches:
-    if 'mitre_technique' in search.content:
-        # Extract MITRE mappings from alert metadata
-        # Map to v18 Detection Strategies based on search logic
-```
-
-### Elastic Security
-
-```python
-# Using Kibana Detection API
-import requests
-
-rules = requests.get('https://kibana:9200/.kibana/_search?...')
-
-for rule in rules['hits']['hits']:
-    threat = rule['_source']['rule']['threat']
-    # Extract technique IDs from 'threat' field
-    # Map to v18 Analytics based on rule query
-```
-
 **Note:** Full automation of SIEM → v18 mapping requires rule metadata enrichment in your CI/CD pipeline. Add `mitre_detection_strategy` and `mitre_analytic` tags to your detection rules.
 
 ## File Format Examples
@@ -256,9 +213,6 @@ for rule in rules['hits']['hits']:
 See included example files:
 
 - `example_sentinel_detections.json` - Production SIEM rules
-- `example_visibility_layer.json` - Log source capability
-- `example_threat_intel_layer.json` - APT TTPs for finance sector
-- `example_gap_analysis_layers.json` - Combined multi-layer workflow
 
 ## Color Coding
 
@@ -426,36 +380,27 @@ window.debugAvailableDataComponents.filter(id => {
 ### Performance Issues
 
 - Limit layers to ~10 maximum
-- Each layer with 100+ detections may slow rendering
 - Consider splitting large rulesets into focused layers
 
 ## Future Enhancements (Roadmap)
 
-- [ ] **Robustness Scoring:** Integrate "Summiting the Pyramid" levels (1-5)
+- [ ] **Robustness Scoring:** Integrate DRAPE Index
 - [ ] **Export to Navigator:** Convert v18 layers to Navigator v4.5 format
 - [ ] **Layer Intersection Mode:** Show only gaps (Visibility ∩ Threat - Detections)
-- [ ] **SIEM Connector Plugins:** Auto-export from Sentinel, Splunk, Elastic
 - [ ] **CI/CD Integration:** Webhook endpoint for automated layer updates
 - [ ] **Diff Visualization:** Compare layer versions over time
+- [ ] **General UX:** Introduce seperate tabs for layers and visibility.
 
 ## References
 
 - MITRE ATT&CK v18 Release Notes: https://attack.mitre.org/resources/updates/updates-october-2025/
 - Detection Strategies: https://attack.mitre.org/detectionstrategies/
 - Analytics: https://attack.mitre.org/analytics/
-- Research Paper: "Multidimensional Detection Engineering: Transcending the Matrix in the Era of MITRE ATT&CK v18"
 
 ## License
 
 This tool uses MITRE ATT&CK data licensed under Apache 2.0.
 
-## Support
-
-For issues or feature requests related to the visualization tool, please document your use case and desired functionality.
-
-For questions about MITRE ATT&CK v18 schema, refer to official MITRE documentation.
-
 ---
 
-**Built for detection engineers, by detection engineers.**  
-*Transcending the Bingo Card since 2025.*
+**Built for detection engineers, by detection engineers.** 
