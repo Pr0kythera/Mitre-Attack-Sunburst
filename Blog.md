@@ -4,10 +4,10 @@ I'm sure many of you are more than aware about the fundemental challenges we hav
 
 In many organisations, the goal has become the visual saturation of the matrix—turning cells green to signal "coverage". However a single or even many detections against a Mitre Technique or even subtechnique measures at far too high a level to measure effectiveness of coverage against all the different ways that Technique may be expressed across different methods or technologies. 
 
-**Dimensionality Loss**: A single green box for "Brute Force" (T1110) implies safety, but a rule detecting Windows Event ID 4625 provides zero coverage for the same technique executed against AWS CloudTrail or a Linux shadow file.
+* **Dimensionality Loss**: A single green box for "Brute Force" (T1110) implies safety, but a rule detecting Windows Event ID 4625 provides zero coverage for the same technique executed against AWS CloudTrail or a Linux shadow file.
 
 
-Another issue with this issue of the current way we might express coverage through The "Bingo Card" can incentivise "fragile" detections for example a simple string or hash matches—because they "turn the box green" quickly but are easily bypassed by a single byte change from an attacker.
+* **Wrongly incentivizing** Another issue with this issue of the current way we might express coverage through The "Bingo Card" can incentivise "fragile" detections for example a simple string or hash matches—because they "turn the box green" quickly but are easily bypassed by a single byte change from an attacker.
 
 
 * **Binary Metrics**: It fails to capture the **robustness** of a detection. A "Level 1" IOC detection (based on a rotating IP) is visually identical to a "Level 5" "Standard Deviation Anomaly" detection (based on statistical anomalies), yet their operational value is worlds apart.
