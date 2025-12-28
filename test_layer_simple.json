@@ -1,0 +1,47 @@
+{
+  "name": "Test Layer - Direct Data Component Activation",
+  "version": "1.0",
+  "domain": "enterprise-attack",
+  "description": "Minimal test layer to verify import functionality. Uses only Data Component IDs without requiring Analytics to exist.",
+  "detections": [
+    {
+      "ruleName": "Test Detection 1",
+      "ruleId": "TEST-001",
+      "tactics": ["credential-access"],
+      "techniques": ["T1110"],
+      "subtechniques": [],
+      "detectionStrategies": [],
+      "analytics": [],
+      "dataComponents": ["DS0028"],
+      "tables": [],
+      "score": 1.0,
+      "enabled": true
+    },
+    {
+      "ruleName": "Test Detection 2",
+      "ruleId": "TEST-002",
+      "tactics": ["credential-access"],
+      "techniques": ["T1003"],
+      "subtechniques": [],
+      "detectionStrategies": [],
+      "analytics": [],
+      "dataComponents": ["DS0009", "DS0024"],
+      "tables": [],
+      "score": 1.0,
+      "enabled": true
+    },
+    {
+      "ruleName": "Test Detection 3",
+      "ruleId": "TEST-003",
+      "tactics": ["execution"],
+      "techniques": ["T1059"],
+      "subtechniques": [],
+      "detectionStrategies": ["DET0516"],
+      "analytics": ["AN1428"],
+      "dataComponents": ["DC0032"],
+      "tables": [],
+      "score": 1.0,
+      "enabled": true
+    }
+  ]
+}

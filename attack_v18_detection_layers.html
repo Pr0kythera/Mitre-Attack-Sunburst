@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MITRE ATT&CK v18 Detection Depth Map - Multi-Layer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --panel-bg: #1e1e1e;
+            --border-color: #333;
+            --accent-color: #00bcd4;
+            --success-color: #2e7d32;
+            --warning-color: #fbc02d;
+            --danger-color: #d32f2f;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #loader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 4px solid #333;
+            border-top: 4px solid var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #loading-text { margin-top: 20px; font-family: monospace; color: var(--accent-color); font-size: 1.1em;}
+        #loading-subtext { color: #888; font-size: 0.9rem; margin-top: 8px; }
+
+        #sidebar {
+            width: 380px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+            z-index: 10;
+            overflow-y: auto;
+        }
+
+        #main-view {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+            overflow: hidden;
+        }
+        
+        #chart {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #chart svg {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        h1 { font-size: 1.2rem; color: var(--accent-color); letter-spacing: 1px; margin: 0 0 5px 0; }
+        h2 { font-size: 1rem; color: var(--accent-color); letter-spacing: 0.5px; margin: 20px 0 10px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
+        .subtitle { font-size: 0.8rem; color: #888; margin-bottom: 20px; }
+        
+        .score-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+        }
+        .score-big { font-size: 2.5rem; font-weight: bold; color: #fff; }
+        .score-label { font-size: 0.75rem; text-transform: uppercase; color: #aaa; letter-spacing: 1px; }
+
+        .control-group { margin-top: 15px; }
+        
+        button {
+            background: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            transition: background 0.2s;
+            font-size: 0.9rem;
+        }
+        button:hover { background: #00acc1; }
+        button.secondary { background: #333; color: #fff; margin-top: 10px; }
+        button.danger { background: var(--danger-color); color: #fff; }
+        button.small { padding: 5px 10px; font-size: 0.8rem; width: auto; }
+
+        #tooltip {
+            position: fixed;
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid #555;
+            padding: 12px;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 0.85rem;
+            max-width: 350px;
+            opacity: 0;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+
+        #breadcrumbs {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 0.9rem;
+            color: #00bcd4;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 12px;
+            border-radius: 4px;
+            pointer-events: none;
+            max-width: 80%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .meta-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            margin-top: 5px;
+            background: #333;
+            color: #ccc;
+        }
+        
+        .id-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+            background: rgba(0, 188, 212, 0.2);
+            color: #00bcd4;
+            border: 1px solid #00bcd4;
+        }
+        
+        .log-source {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        /* Layer Management */
+        .layer-item {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .layer-item.active {
+            border-color: var(--accent-color);
+            background: rgba(0, 188, 212, 0.1);
+        }
+
+        .layer-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .layer-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .layer-name {
+            font-weight: bold;
+            font-size: 0.85rem;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .layer-stats {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .layer-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .layer-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .file-drop-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-drop-zone:hover {
+            border-color: var(--accent-color);
+            background: rgba(0, 188, 212, 0.05);
+        }
+
+        .file-drop-zone.drag-over {
+            border-color: var(--accent-color);
+            background: rgba(0, 188, 212, 0.1);
+        }
+
+        .help-text {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        .schema-example {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 0.7rem;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .collapsible-section {
+            margin-top: 15px;
+        }
+
+        .collapsible-header {
+            cursor: pointer;
+            padding: 8px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .collapsible-header:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.open {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <div id="loading-text">Accessing MITRE v18 Data...</div>
+        <div id="loading-subtext">Fetching enterprise-attack.json (October 2025 Release)</div>
+    </div>
+
+    <div id="sidebar">
+        <h1>DETECTION DEPTH MAP</h1>
+        <div class="subtitle">MITRE ATT&CK v18 Native - Multi-Layer</div>
+
+        <div class="score-card">
+            <div class="score-label">Global Coverage</div>
+            <div class="score-big" id="global-score">0%</div>
+            <div style="margin-top: 5px; font-size: 0.8rem; color: #888;">
+                <span id="active-components">0</span> / <span id="total-components">0</span> Data Components Active
+            </div>
+        </div>
+
+        <!-- Layer Management Section -->
+        <h2>Detection Layers</h2>
+        
+        <div class="file-drop-zone" id="dropZone">
+            <div style="font-size: 0.9rem; margin-bottom: 5px;">Drop v18 Detection Layer JSON</div>
+            <div class="help-text">or click to browse</div>
+        </div>
+        <input type="file" id="file-input" accept=".json" multiple>
+
+        <div id="layers-list">
+            <!-- Layers will be added here dynamically -->
+        </div>
+
+        <div class="control-group">
+            <button onclick="exportActiveLayers()">Export Active Layers</button>
+            <button class="secondary" onclick="clearAllLayers()">Clear All Layers</button>
+        </div>
+
+        <!-- Schema Help Section -->
+        <div class="collapsible-section">
+            <div class="collapsible-header" onclick="toggleCollapsible('schema-help')">
+                <span style="font-size: 0.85rem; font-weight: bold;">Schema Reference</span>
+                <span id="schema-help-icon">▼</span>
+            </div>
+            <div class="collapsible-content" id="schema-help">
+                <div class="schema-example">
+{
+  "name": "SIEM Coverage",
+  "version": "1.0",
+  "domain": "enterprise-attack",
+  "description": "Production detections",
+  "detections": [
+    {
+      "ruleName": "High Volume Auth Failures",
+      "ruleId": "SENT-BF-001",
+      "tactics": ["credential-access"],
+      "techniques": ["T1110"],
+      "subtechniques": ["T1110.003"],
+      "detectionStrategies": ["DET0487"],
+      "analytics": ["AN1336"],
+      "dataComponents": ["DS0028"],
+      "tables": ["SigninLogs"],
+      "score": 1.0,
+      "enabled": true
+    }
+  ]
+}
+                </div>
+            </div>
+        </div>
+
+        <div id="node-details" style="display:none; margin-top: 20px;">
+            <h2>Selection Details</h2>
+            <div id="detail-id-badge" class="id-badge"></div>
+            <div id="detail-name" style="font-weight:bold; color:white; margin-bottom: 5px; font-size: 0.95rem;"></div>
+            <div id="detail-type" style="color:#888; font-size: 0.75rem; margin-bottom: 10px; text-transform: uppercase;"></div>
+            <div id="detail-log-source" class="log-source"></div>
+            
+            <div class="score-card" style="margin-top:15px; background: rgba(0,0,0,0.2);">
+                <div class="score-label">Branch Coverage</div>
+                <div class="score-big" id="node-score">0%</div>
+            </div>
+            
+            <p id="detail-desc" style="font-size: 0.8rem; color: #aaa; line-height: 1.4; max-height: 200px; overflow-y: auto; margin-top: 10px;"></p>
+        </div>
+
+        <div class="control-group" style="margin-top: auto; padding-top: 20px;">
+            <div style="font-size: 0.75rem; color: #666; margin-bottom: 10px; font-style: italic;">
+                Click to zoom. Right-click for manual toggle (when no layers active).
+            </div>
+            <button class="secondary" onclick="resetZoom()">Reset Zoom</button>
+        </div>
+    </div>
+
+    <div id="main-view">
+        <div id="breadcrumbs">ATT&CK Enterprise</div>
+        <div id="chart"></div>
+    </div>
+    
+    <div id="tooltip"></div>
+
+<script>
+    const MITRE_STIX_URL = "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/refs/heads/master/enterprise-attack/enterprise-attack.json";
+    
+    let fullDataset = null;
+    let svg, g, path, root, partition, arc, radius;
+    let detectionLayers = []; // Array of imported detection layers
+    let layerIdCounter = 0;
+    
+    async function init() {
+        try {
+            updateLoader("Fetching MITRE v18 Data...", "Download in progress...");
+            const response = await fetch(MITRE_STIX_URL);
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const stixData = await response.json();
+            
+            updateLoader("Parsing STIX Bundle...", "Processing objects...");
+            
+            setTimeout(() => {
+                try {
+                    const hierarchy = parseStixToHierarchy(stixData);
+                    fullDataset = hierarchy;
+                    
+                    console.log("Hierarchy root:", fullDataset);
+                    console.log("Number of tactics:", fullDataset.children?.length || 0);
+                    
+                    // Load saved layers from localStorage
+                    loadSavedLayers();
+                    
+                    applyLayersToCoverage();
+                    drawChart(fullDataset);
+                    
+                    document.getElementById("loader").style.display = "none";
+                    console.log("Visualization complete");
+                } catch (parseError) {
+                    console.error("Parse error:", parseError);
+                    alert("Parsing Error: " + parseError.message);
+                }
+            }, 100);
+            
+        } catch (error) {
+            console.error("Init error:", error);
+            alert("Failed to load MITRE data: " + error.message);
+        }
+    }
+    
+    function updateLoader(text, subtext) {
+        document.getElementById("loading-text").innerText = text;
+        document.getElementById("loading-subtext").innerText = subtext;
+    }
+    
+    function parseStixToHierarchy(stixData) {
+        if (!stixData || !stixData.objects) {
+            throw new Error("Invalid STIX data structure");
+        }
+        
+        const objects = stixData.objects;
+        console.log(`Processing ${objects.length} STIX objects`);
+        
+        // Index all objects by ID and external ID
+        const objectMap = {};
+        const externalIdMap = {};
+        objects.forEach(obj => {
+            objectMap[obj.id] = obj;
+            const extId = obj.external_references?.[0]?.external_id;
+            if (extId) {
+                externalIdMap[extId] = obj;
+            }
+        });
+        
+        // Store maps globally for layer processing
+        window.stixObjectMap = objectMap;
+        window.stixExternalIdMap = externalIdMap;
+        
+        const tactics = objects.filter(o => o.type === 'x-mitre-tactic');
+        const techniques = objects.filter(o => o.type === 'attack-pattern');
+        const detectionStrategies = objects.filter(o => o.type === 'x-mitre-detection-strategy');
+        const analytics = objects.filter(o => o.type === 'x-mitre-analytic');
+        const dataComponents = objects.filter(o => o.type === 'x-mitre-data-component');
+        const relationships = objects.filter(o => o.type === 'relationship');
+        
+        console.log(`Found: ${tactics.length} tactics, ${techniques.length} techniques, ${detectionStrategies.length} strategies, ${analytics.length} analytics, ${dataComponents.length} data components, ${relationships.length} relationships`);
+        
+        // Build relationship map
+        const sourceToTargets = {};
+        relationships.forEach(rel => {
+            if (!sourceToTargets[rel.source_ref]) {
+                sourceToTargets[rel.source_ref] = [];
+            }
+            sourceToTargets[rel.source_ref].push({
+                type: rel.relationship_type,
+                target: rel.target_ref
+            });
+        });
+        
+        // Create tactics map
+        const tacticsMap = {};
+        tactics.forEach(tactic => {
+            const shortName = tactic.x_mitre_shortname || tactic.name;
+            const tacticId = tactic.external_references?.[0]?.external_id || tactic.id;
+            
+            tacticsMap[tactic.id] = {
+                name: tactic.name,
+                shortName: shortName,
+                type: "Tactic",
+                id: tacticId,
+                stixId: tactic.id,
+                description: tactic.description,
+                _children: []
+            };
+        });
+        
+        // Add techniques to tactics
+        techniques.forEach(technique => {
+            const killChainPhases = technique.kill_chain_phases || [];
+            const techniqueId = technique.external_references?.[0]?.external_id || technique.id;
+            
+            killChainPhases.forEach(phase => {
+                if (phase.kill_chain_name === 'mitre-attack') {
+                    const tacticEntry = Object.values(tacticsMap).find(t => 
+                        t.shortName && t.shortName.toLowerCase() === phase.phase_name.toLowerCase()
+                    );
+                    
+                    if (tacticEntry) {
+                        const techNode = {
+                            name: technique.name,
+                            type: "Technique",
+                            id: techniqueId,
+                            stixId: technique.id,
+                            description: technique.description,
+                            _children: []
+                        };
+                        tacticEntry._children.push(techNode);
+                    }
+                }
+            });
+        });
+        
+        console.log(`Built tactics with techniques`);
+        
+        // Process detection strategies and their analytics
+        let strategiesAdded = 0;
+        let analyticsAdded = 0;
+        let dataComponentsAdded = 0;
+        
+        detectionStrategies.forEach(strategy => {
+            const strategyId = strategy.external_references?.[0]?.external_id || 'DET-' + strategy.id.slice(-4);
+            
+            // Find which technique this strategy detects
+            const rels = sourceToTargets[strategy.id] || [];
+            const detectsRels = rels.filter(r => r.type === 'detects');
+            
+            detectsRels.forEach(rel => {
+                const techniqueId = rel.target;
+                const technique = objectMap[techniqueId];
+                
+                if (technique && technique.type === 'attack-pattern') {
+                    // Find this technique in all tactics
+                    Object.values(tacticsMap).forEach(tactic => {
+                        tactic._children.forEach(tech => {
+                            if (tech.stixId === techniqueId) {
+                                // Add strategy node
+                                const stratNode = {
+                                    name: strategy.name,
+                                    type: "Detection Strategy",
+                                    id: strategyId,
+                                    stixId: strategy.id,
+                                    description: strategy.description,
+                                    children: []
+                                };
+                                tech._children.push(stratNode);
+                                strategiesAdded++;
+                                
+                                // Add analytics referenced by this strategy
+                                const analyticRefs = strategy.x_mitre_analytic_refs || [];
+                                analyticRefs.forEach(analyticRef => {
+                                    const analytic = objectMap[analyticRef];
+                                    if (analytic && analytic.type === 'x-mitre-analytic') {
+                                        const analyticId = analytic.external_references?.[0]?.external_id || 'AN-' + analytic.id.slice(-4);
+                                        
+                                        const analyticNode = {
+                                            name: analytic.name,
+                                            type: "Analytic",
+                                            id: analyticId,
+                                            stixId: analytic.id,
+                                            description: analytic.description,
+                                            active: false,
+                                            platforms: analytic.x_mitre_platforms || [],
+                                            children: [],
+                                            layerSources: [] // Track which layers activate this
+                                        };
+                                        stratNode.children.push(analyticNode);
+                                        analyticsAdded++;
+                                        
+                                        // Add data components referenced by this analytic via log sources
+                                        const logSourceRefs = analytic.x_mitre_log_source_references || [];
+                                        logSourceRefs.forEach(logSourceRef => {
+                                            if (logSourceRef.x_mitre_data_component_ref) {
+                                                const dataComponent = objectMap[logSourceRef.x_mitre_data_component_ref];
+                                                if (dataComponent && dataComponent.type === 'x-mitre-data-component') {
+                                                    const dataComponentId = dataComponent.external_references?.[0]?.external_id || 'DC-' + dataComponent.id.slice(-4);
+                                                    
+                                                    // Check if this data component is already added
+                                                    if (!analyticNode.children.find(dc => dc.stixId === dataComponent.id)) {
+                                                        analyticNode.children.push({
+                                                            name: dataComponent.name,
+                                                            type: "Data Component",
+                                                            id: dataComponentId,
+                                                            stixId: dataComponent.id,
+                                                            description: dataComponent.description,
+                                                            active: false,
+                                                            logSourceName: logSourceRef.name,
+                                                            logSourceChannel: logSourceRef.channel,
+                                                            layerSources: [] // Track which layers activate this
+                                                        });
+                                                        dataComponentsAdded++;
+                                                    }
+                                                }
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                    });
+                }
+            });
+        });
+        
+        console.log(`Added ${strategiesAdded} strategy nodes, ${analyticsAdded} analytic nodes, and ${dataComponentsAdded} data component nodes to the hierarchy`);
+        
+        // Convert to final structure
+        const root = {
+            name: "ATT&CK Enterprise",
+            type: "Root",
+            id: "Enterprise",
+            children: Object.values(tacticsMap).map(tactic => ({
+                name: tactic.name,
+                type: tactic.type,
+                id: tactic.id,
+                description: tactic.description,
+                children: tactic._children.map(tech => ({
+                    name: tech.name,
+                    type: tech.type,
+                    id: tech.id,
+                    description: tech.description,
+                    children: tech._children
+                }))
+            }))
+        };
+        
+        console.log("Hierarchy built successfully");
+        
+        // Debug: Log available Analytics and Data Components
+        const availableAnalytics = new Set();
+        const availableDataComponents = new Set();
+        
+        function collectIds(node) {
+            if (node.type === 'Analytic') {
+                availableAnalytics.add(node.id);
+            } else if (node.type === 'Data Component') {
+                availableDataComponents.add(node.id);
+            }
+            
+            if (node.children && node.children.length > 0) {
+                node.children.forEach(child => collectIds(child));
+            }
+        }
+        
+        collectIds(root);
+        
+        console.log(`Available Analytics (${availableAnalytics.size}):`, Array.from(availableAnalytics).sort());
+        console.log(`Available Data Components (${availableDataComponents.size}):`, Array.from(availableDataComponents).sort());
+        
+        // Store globally for easy debugging
+        window.debugAvailableAnalytics = Array.from(availableAnalytics).sort();
+        window.debugAvailableDataComponents = Array.from(availableDataComponents).sort();
+        
+        // Provide helper functions in console
+        window.listAnalytics = () => {
+            console.log('=== Available Analytics ===');
+            window.debugAvailableAnalytics.forEach(id => console.log(id));
+            return window.debugAvailableAnalytics;
+        };
+        
+        window.listDataComponents = () => {
+            console.log('=== Available Data Components ===');
+            window.debugAvailableDataComponents.forEach(id => console.log(id));
+            return window.debugAvailableDataComponents;
+        };
+        
+        window.findAnalyticsByTechnique = (techniqueId) => {
+            const results = [];
+            function search(node, path = []) {
+                const newPath = [...path, node.name];
+                if (node.id === techniqueId || node.name === techniqueId) {
+                    // Found the technique, collect all analytics under it
+                    function collectAnalytics(n) {
+                        if (n.type === 'Analytic') results.push({ id: n.id, name: n.name });
+                        if (n.children) n.children.forEach(collectAnalytics);
+                    }
+                    collectAnalytics(node);
+                }
+                if (node.children) {
+                    node.children.forEach(c => search(c, newPath));
+                }
+            }
+            search(fullDataset);
+            console.log(`Analytics for ${techniqueId}:`);
+            results.forEach(a => console.log(`  ${a.id}: ${a.name}`));
+            return results;
+        };
+        
+        console.log('💡 Debug helpers available:');
+        console.log('  - listAnalytics() - Show all available Analytic IDs');
+        console.log('  - listDataComponents() - Show all available Data Component IDs');
+        console.log('  - findAnalyticsByTechnique("T1110") - Find analytics for a specific technique');
+        
+        return root;
+    }
+    
+    // Layer Management Functions
+    
+    function importDetectionLayer(layerData, filename = "Imported Layer") {
+        try {
+            // Validate layer structure
+            if (!layerData.detections || !Array.isArray(layerData.detections)) {
+                throw new Error("Invalid layer format: 'detections' array required");
+            }
+            
+            const layerId = ++layerIdCounter;
+            const layer = {
+                id: layerId,
+                name: layerData.name || filename,
+                version: layerData.version || "1.0",
+                domain: layerData.domain || "enterprise-attack",
+                description: layerData.description || "",
+                detections: layerData.detections,
+                enabled: true,
+                color: getLayerColor(layerId),
+                stats: {
+                    totalRules: layerData.detections.length,
+                    activatedComponents: 0
+                }
+            };
+            
+            detectionLayers.push(layer);
+            console.log(`Imported layer: ${layer.name} with ${layer.detections.length} detections`);
+            
+            // Update UI
+            renderLayersList();
+            applyLayersToCoverage();
+            updateVisualization();
+            
+            // Save to localStorage
+            saveLayersToStorage();
+            
+            return layer;
+            
+        } catch (error) {
+            console.error("Error importing layer:", error);
+            alert("Failed to import layer: " + error.message);
+            return null;
+        }
+    }
+    
+    function applyLayersToCoverage() {
+        if (!fullDataset) return;
+        
+        // First, reset all activation states
+        resetActivationStates(fullDataset);
+        
+        // Get enabled layers
+        const enabledLayers = detectionLayers.filter(l => l.enabled);
+        
+        if (enabledLayers.length === 0) {
+            console.log("No enabled layers - coverage will be 0%");
+            calculateCoverage(fullDataset);
+            return;
+        }
+        
+        console.log(`Applying ${enabledLayers.length} enabled layer(s) to coverage`);
+        
+        // Apply each enabled layer
+        enabledLayers.forEach(layer => {
+            let activatedCount = 0;
+            
+            layer.detections.forEach(detection => {
+                if (detection.enabled === false) return; // Skip disabled detections
+                
+                console.log(`Processing detection: ${detection.ruleName}`);
+                
+                const techniques = [...(detection.techniques || []), ...(detection.subtechniques || [])];
+                const strategies = detection.detectionStrategies || [];
+                const analytics = detection.analytics || [];
+                const dataComponents = detection.dataComponents || [];
+                
+                console.log(`  Techniques: ${techniques.join(', ') || 'none'}`);
+                console.log(`  Detection Strategies: ${strategies.join(', ') || 'none'}`);
+                console.log(`  Analytics: ${analytics.join(', ') || 'none'}`);
+                console.log(`  Data Components: ${dataComponents.join(', ') || 'none'}`);
+                
+                // CONTEXTUAL ACTIVATION: Only activate components within the specified hierarchy
+                const count = activateContextual(fullDataset, {
+                    techniques: techniques,
+                    strategies: strategies,
+                    analytics: analytics,
+                    dataComponents: dataComponents,
+                    layerId: layer.id,
+                    ruleName: detection.ruleName
+                });
+                
+                if (count > 0) {
+                    console.log(`  ✓ Activated ${count} component(s) in context`);
+                } else {
+                    console.warn(`  ✗ No components activated - check IDs match hierarchy`);
+                }
+                
+                activatedCount += count;
+            });
+            
+            layer.stats.activatedComponents = activatedCount;
+            console.log(`Layer "${layer.name}" activated ${activatedCount} components total`);
+        });
+        
+        // Recalculate coverage with union logic (any layer activates = active)
+        calculateCoverage(fullDataset);
+        renderLayersList(); // Update stats display
+    }
+    
+    function activateContextual(node, context, currentPath = {}) {
+        let count = 0;
+        
+        // Track where we are in the hierarchy
+        if (node.type === 'Technique' && context.techniques.includes(node.id)) {
+            currentPath.inTechnique = true;
+            currentPath.techniqueId = node.id;
+        }
+        
+        if (node.type === 'Detection Strategy' && context.strategies.includes(node.id)) {
+            currentPath.inStrategy = true;
+            currentPath.strategyId = node.id;
+        }
+        
+        if (node.type === 'Analytic' && context.analytics.includes(node.id)) {
+            currentPath.inAnalytic = true;
+            currentPath.analyticId = node.id;
+        }
+        
+        // Activate if conditions are met
+        if (node.type === 'Data Component' && context.dataComponents.includes(node.id)) {
+            // Check if we're in the right context
+            const techniqueMatch = context.techniques.length === 0 || currentPath.inTechnique;
+            const strategyMatch = context.strategies.length === 0 || currentPath.inStrategy;
+            const analyticMatch = context.analytics.length === 0 || currentPath.inAnalytic;
+            
+            if (techniqueMatch && strategyMatch && analyticMatch) {
+                if (!node.layerSources) node.layerSources = [];
+                if (!node.layerSources.includes(context.layerId)) {
+                    node.layerSources.push(context.layerId);
+                }
+                node.active = true;
+                count++;
+                console.log(`    → Activated DC: ${node.id} (${node.name}) under Technique=${currentPath.techniqueId}, Strategy=${currentPath.strategyId}, Analytic=${currentPath.analyticId}`);
+            }
+        }
+        
+        if (node.type === 'Analytic' && context.analytics.includes(node.id)) {
+            // Also activate the Analytic node itself
+            if (!node.layerSources) node.layerSources = [];
+            if (!node.layerSources.includes(context.layerId)) {
+                node.layerSources.push(context.layerId);
+            }
+            node.active = true;
+            count++;
+            console.log(`    → Activated Analytic: ${node.id} (${node.name})`);
+        }
+        
+        // Recurse to children with current path context
+        if (node.children && node.children.length > 0) {
+            node.children.forEach(child => {
+                count += activateContextual(child, context, {...currentPath});
+            });
+        }
+        
+        return count;
+    }
+    
+    function resetActivationStates(node) {
+        if (node.layerSources) {
+            node.layerSources = [];
+        }
+        node.active = false;
+        
+        if (node.children && node.children.length > 0) {
+            node.children.forEach(child => resetActivationStates(child));
+        }
+    }
+    
+    function toggleLayer(layerId) {
+        const layer = detectionLayers.find(l => l.id === layerId);
+        if (layer) {
+            layer.enabled = !layer.enabled;
+            console.log(`Layer "${layer.name}" ${layer.enabled ? 'enabled' : 'disabled'}`);
+            renderLayersList();
+            applyLayersToCoverage();
+            updateVisualization();
+            saveLayersToStorage();
+        }
+    }
+    
+    function deleteLayer(layerId) {
+        const index = detectionLayers.findIndex(l => l.id === layerId);
+        if (index !== -1) {
+            const layer = detectionLayers[index];
+            if (confirm(`Delete layer "${layer.name}"?`)) {
+                detectionLayers.splice(index, 1);
+                console.log(`Deleted layer: ${layer.name}`);
+                renderLayersList();
+                applyLayersToCoverage();
+                updateVisualization();
+                saveLayersToStorage();
+            }
+        }
+    }
+    
+    function exportLayer(layerId) {
+        const layer = detectionLayers.find(l => l.id === layerId);
+        if (layer) {
+            const exportData = {
+                name: layer.name,
+                version: layer.version,
+                domain: layer.domain,
+                description: layer.description,
+                detections: layer.detections
+            };
+            
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${layer.name.replace(/[^a-z0-9]/gi, '_')}_layer.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    }
+    
+    function exportActiveLayers() {
+        const enabled = detectionLayers.filter(l => l.enabled);
+        if (enabled.length === 0) {
+            alert("No active layers to export");
+            return;
+        }
+        
+        const exportData = {
+            layers: enabled.map(l => ({
+                name: l.name,
+                version: l.version,
+                domain: l.domain,
+                description: l.description,
+                detections: l.detections
+            }))
+        };
+        
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'active_detection_layers.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+    
+    function clearAllLayers() {
+        if (detectionLayers.length === 0) return;
+        
+        if (confirm(`Clear all ${detectionLayers.length} layer(s)?`)) {
+            detectionLayers = [];
+            layerIdCounter = 0;
+            renderLayersList();
+            applyLayersToCoverage();
+            updateVisualization();
+            saveLayersToStorage();
+        }
+    }
+    
+    function renderLayersList() {
+        const container = document.getElementById('layers-list');
+        
+        if (detectionLayers.length === 0) {
+            container.innerHTML = '<div class="help-text" style="text-align: center; padding: 20px;">No layers imported yet</div>';
+            return;
+        }
+        
+        container.innerHTML = detectionLayers.map(layer => `
+            <div class="layer-item ${layer.enabled ? 'active' : ''}">
+                <input type="checkbox" 
+                       class="layer-checkbox" 
+                       ${layer.enabled ? 'checked' : ''} 
+                       onchange="toggleLayer(${layer.id})">
+                <div class="layer-info">
+                    <div class="layer-name">
+                        <span class="layer-color" style="background: ${layer.color};"></span>
+                        ${escapeHtml(layer.name)}
+                    </div>
+                    <div class="layer-stats">
+                        ${layer.detections.length} rules · ${layer.stats.activatedComponents} components
+                    </div>
+                </div>
+                <div class="layer-actions">
+                    <button class="small secondary" onclick="exportLayer(${layer.id})" title="Export">↓</button>
+                    <button class="small danger" onclick="deleteLayer(${layer.id})" title="Delete">×</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function getLayerColor(layerId) {
+        const colors = [
+            '#00bcd4', '#4caf50', '#ff9800', '#e91e63', 
+            '#9c27b0', '#ffeb3b', '#00e676', '#ff6e40'
+        ];
+        return colors[(layerId - 1) % colors.length];
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Storage Functions
+    
+    function saveLayersToStorage() {
+        try {
+            const data = {
+                layers: detectionLayers,
+                counter: layerIdCounter
+            };
+            localStorage.setItem('mitre_v18_detection_layers', JSON.stringify(data));
+            console.log("Layers saved to localStorage");
+        } catch (error) {
+            console.error("Failed to save layers:", error);
+        }
+    }
+    
+    function loadSavedLayers() {
+        try {
+            const saved = localStorage.getItem('mitre_v18_detection_layers');
+            if (saved) {
+                const data = JSON.parse(saved);
+                detectionLayers = data.layers || [];
+                layerIdCounter = data.counter || 0;
+                console.log(`Loaded ${detectionLayers.length} saved layer(s)`);
+                renderLayersList();
+            }
+        } catch (error) {
+            console.error("Failed to load saved layers:", error);
+        }
+    }
+    
+    // File Upload Handlers
+    
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('file-input');
+    
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        handleFiles(e.dataTransfer.files);
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+        fileInput.value = ''; // Reset for re-upload
+    });
+    
+    function handleFiles(files) {
+        Array.from(files).forEach(file => {
+            if (file.type === 'application/json' || file.name.endsWith('.json')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        
+                        // Handle both single layer and multi-layer files
+                        if (data.layers && Array.isArray(data.layers)) {
+                            // Multi-layer file
+                            data.layers.forEach(layerData => {
+                                importDetectionLayer(layerData, layerData.name || file.name);
+                            });
+                        } else {
+                            // Single layer file
+                            importDetectionLayer(data, file.name);
+                        }
+                    } catch (error) {
+                        alert(`Error parsing ${file.name}: ${error.message}`);
+                    }
+                };
+                reader.readAsText(file);
+            } else {
+                alert(`Skipping ${file.name}: not a JSON file`);
+            }
+        });
+    }
+    
+    // Visualization Functions
+    
+    function calculateCoverage(node) {
+        if (!node.children || node.children.length === 0) {
+            node.leafCount = (node.type === 'Data Component') ? 1 : 0;
+            node.activeLeafCount = (node.active) ? 1 : 0;
+            node.score = (node.active) ? 1.0 : 0.0;
+            return;
+        }
+        let total = 0, active = 0;
+        node.children.forEach(child => {
+            calculateCoverage(child);
+            total += child.leafCount;
+            active += child.activeLeafCount;
+        });
+        node.leafCount = total;
+        node.activeLeafCount = active;
+        node.score = total === 0 ? 0 : (active / total);
+    }
+    
+    function getCoverageColor(score) {
+        const colors = [
+            '#8B0000',  // 0-10%:   Dark Red
+            '#B71C1C',  // 10-20%:  Red
+            '#D32F2F',  // 20-30%:  Light Red
+            '#E64A19',  // 30-40%:  Red-Orange
+            '#F57C00',  // 40-50%:  Orange
+            '#FBC02D',  // 50-60%:  Yellow-Orange
+            '#FDD835',  // 60-70%:  Yellow
+            '#C0CA33',  // 70-80%:  Yellow-Green
+            '#7CB342',  // 80-90%:  Light Green
+            '#388E3C'   // 90-100%: Green
+        ];
+        
+        const index = Math.min(Math.floor(score * 10), 9);
+        return colors[index];
+    }
+    
+    function drawChart(data) {
+        const container = document.getElementById("chart");
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        radius = Math.min(width, height) / 2 - 10;
+
+        console.log(`Drawing chart: width=${width}, height=${height}, radius=${radius}`);
+
+        d3.select("#chart").selectAll("*").remove();
+
+        svg = d3.select("#chart")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        g = svg.append("g")
+            .attr("transform", `translate(${width/2},${height/2})`);
+
+        root = d3.hierarchy(data)
+            .sum(d => 1)
+            .sort((a, b) => b.value - a.value);
+
+        console.log(`Hierarchy created: ${root.descendants().length} nodes, height: ${root.height}`);
+
+        partition = d3.partition()
+            .size([2 * Math.PI, radius]);
+
+        partition(root);
+
+        arc = d3.arc()
+            .startAngle(d => d.x0)
+            .endAngle(d => d.x1)
+            .padAngle(0.005)
+            .innerRadius(d => d.y0)
+            .outerRadius(d => d.y1);
+
+        root.each(d => d.current = d);
+
+        path = g.append("g")
+            .selectAll("path")
+            .data(root.descendants().slice(1))
+            .join("path")
+            .attr("fill", d => getCoverageColor(d.data.score || 0))
+            .attr("fill-opacity", 0.85)
+            .attr("stroke", "#000")
+            .attr("stroke-width", 0.5)
+            .attr("d", d => arc(d.current))
+            .style("cursor", "pointer");
+
+        console.log(`Rendered ${path.size()} paths`);
+
+        path
+            .on("click", clicked)
+            .on("contextmenu", rightClicked)
+            .on("mouseover", mouseover)
+            .on("mouseout", mouseout);
+
+        g.append("circle")
+            .attr("r", radius / 4)
+            .attr("fill", "#0a0a0a")
+            .attr("stroke", "#00bcd4")
+            .attr("stroke-width", 2)
+            .style("cursor", "pointer")
+            .on("click", () => clicked(null, root));
+
+        updateStats();
+    }
+
+    function updateVisualization() {
+        if (!root || !path) return;
+        
+        root = d3.hierarchy(fullDataset).sum(d => 1).sort((a, b) => b.value - a.value);
+        partition(root);
+        root.each(d => d.current = d);
+        
+        path.data(root.descendants().slice(1))
+            .transition()
+            .duration(300)
+            .attr("fill", d => getCoverageColor(d.data.score || 0));
+            
+        updateStats();
+    }
+
+    function clicked(event, p) {
+        if (event) event.preventDefault();
+        
+        root.each(d => {
+            d.target = {
+                x0: Math.max(0, Math.min(1, (d.x0 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+                x1: Math.max(0, Math.min(1, (d.x1 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+                y0: d.y0 - p.depth,
+                y1: d.y1 - p.depth
+            };
+        });
+
+        const t = g.transition().duration(750);
+
+        path.transition(t)
+            .tween("data", d => {
+                const i = d3.interpolate(d.current, d.target);
+                return t => d.current = i(t);
+            })
+            .attrTween("d", d => () => arc(d.current));
+
+        updateSidePanel(p);
+        updateBreadcrumbs(p);
+    }
+
+    function rightClicked(event, d) {
+        event.preventDefault();
+        
+        // Only allow manual toggle when no layers are active
+        const hasActiveLayers = detectionLayers.some(l => l.enabled);
+        if (hasActiveLayers) {
+            alert("Manual toggle disabled when detection layers are active. Disable all layers to use manual mode.");
+            return;
+        }
+        
+        const toggle = (node, state) => {
+            if (!node.children || node.children.length === 0) {
+                if (node.data.type === 'Data Component') node.data.active = state;
+            } else {
+                node.children.forEach(c => toggle(c, state));
+            }
+        };
+        
+        const targetState = d.data.score < 1;
+        toggle(d, targetState);
+        
+        calculateCoverage(fullDataset);
+        updateVisualization();
+        updateSidePanel(d);
+    }
+
+    function mouseover(event, d) {
+        const tooltip = d3.select("#tooltip");
+        const platforms = d.data.platforms?.length ? `<div style="font-size:0.7rem; margin-top:3px; color:#888;">${d.data.platforms.join(', ')}</div>` : '';
+        const attackId = d.data.id ? `<div style="font-weight:bold; color:#00bcd4; font-size:0.85rem; margin-bottom:3px;">${d.data.id}</div>` : '';
+        const logSource = (d.data.logSourceName || d.data.logSourceChannel) ? 
+            `<div style="font-size:0.7rem; margin-top:4px; color:#888; border-top:1px solid #333; padding-top:4px;">
+                ${d.data.logSourceName ? `Log: ${d.data.logSourceName}` : ''}
+                ${d.data.logSourceChannel ? `<br/>Channel: ${d.data.logSourceChannel}` : ''}
+            </div>` : '';
+        
+        // Show layer sources if any
+        let layerInfo = '';
+        if (d.data.layerSources && d.data.layerSources.length > 0) {
+            const layers = d.data.layerSources.map(id => {
+                const layer = detectionLayers.find(l => l.id === id);
+                return layer ? layer.name : `Layer ${id}`;
+            });
+            layerInfo = `<div style="font-size:0.7rem; margin-top:4px; color:#0f0; border-top:1px solid #333; padding-top:4px;">
+                Active in: ${layers.join(', ')}
+            </div>`;
+        }
+        
+        tooltip.style("opacity", 1)
+               .html(`
+                   ${attackId}
+                   <div style="font-size:0.75rem; text-transform:uppercase; color:#888; margin-bottom:4px;">${d.data.type}</div>
+                   <div style="margin:5px 0; font-weight:500;">${d.data.name}</div>
+                   ${platforms}
+                   ${logSource}
+                   ${layerInfo}
+                   <div style="font-size:0.75rem; border-top:1px solid #444; padding-top:4px; margin-top:6px;">
+                       Coverage: ${((d.data.score || 0)*100).toFixed(1)}%
+                   </div>
+               `)
+               .style("left", (event.pageX + 15) + "px")
+               .style("top", (event.pageY - 28) + "px");
+        
+        d3.select(event.currentTarget)
+            .attr("stroke", "#00bcd4")
+            .attr("stroke-width", 2);
+    }
+
+    function mouseout(event) {
+        d3.select("#tooltip").style("opacity", 0);
+        d3.select(event.currentTarget)
+            .attr("stroke", "#000")
+            .attr("stroke-width", 0.5);
+    }
+    
+    function updateStats() {
+        document.getElementById("global-score").innerText = Math.round((fullDataset.score || 0) * 100) + "%";
+        document.getElementById("active-components").innerText = fullDataset.activeLeafCount || 0;
+        document.getElementById("total-components").innerText = fullDataset.leafCount || 0;
+    }
+
+    function updateSidePanel(d) {
+        document.getElementById("node-details").style.display = "block";
+        document.getElementById("detail-id-badge").innerText = d.data.id || "N/A";
+        document.getElementById("detail-name").innerText = d.data.name;
+        document.getElementById("detail-type").innerText = d.data.type;
+        
+        const logSourceDiv = document.getElementById("detail-log-source");
+        if (d.data.logSourceName || d.data.logSourceChannel) {
+            logSourceDiv.innerHTML = `Log Source: ${d.data.logSourceName || 'N/A'}<br/>Channel: ${d.data.logSourceChannel || 'N/A'}`;
+            logSourceDiv.style.display = 'block';
+        } else {
+            logSourceDiv.style.display = 'none';
+        }
+        
+        document.getElementById("node-score").innerText = Math.round((d.data.score || 0) * 100) + "%";
+        document.getElementById("node-score").style.color = getCoverageColor(d.data.score || 0);
+        
+        const desc = d.data.description || "No description available.";
+        document.getElementById("detail-desc").innerText = desc.length > 500 ? desc.substring(0, 497) + "..." : desc;
+    }
+
+    function updateBreadcrumbs(d) {
+        const sequence = d.ancestors().reverse().map(d => d.data.name).join(" > ");
+        document.getElementById("breadcrumbs").innerText = sequence;
+    }
+    
+    function resetZoom() {
+        if (root) clicked(null, root);
+    }
+
+    function toggleCollapsible(id) {
+        const content = document.getElementById(id);
+        const icon = document.getElementById(id + '-icon');
+        if (content.classList.contains('open')) {
+            content.classList.remove('open');
+            icon.textContent = '▼';
+        } else {
+            content.classList.add('open');
+            icon.textContent = '▲';
+        }
+    }
+
+    window.addEventListener('resize', () => {
+        if (fullDataset) {
+            drawChart(fullDataset);
+        }
+    });
+
+    init();
+</script>
+</body>
+</html>
