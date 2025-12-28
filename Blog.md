@@ -12,13 +12,13 @@ In many organisations, the goal has become the visual saturation of the matrix�
 
 * **Binary Metrics**: It fails to capture the **robustness** of a detection. A "Level 1" IOC detection (based on a rotating IP) is visually identical to a "Level 5" "Standard Deviation Anomaly" detection (based on statistical anomalies), yet their operational value is worlds apart.
 
-Finally we are failing to capture the ongoing efficacy of a detection, it's TP percentage or it's effectivenes when tested with BAS or Adversay Simulation tooling.
+* **Detection Efficacy** Finally we are failing to capture the ongoing efficacy of a detection, it's TP percentage or it's effectivenes when tested with BAS or Adversay Simulation tooling.
 
 ## Potential solutions via MITRE ATT&CK v18
 
 The release of MITRE ATT&CK v18 (October 2025) transforms the framework from a flat "Dictionary" into a "Relational Database" of defense. By introducing **Detection Strategies (DETxxxx)** and **Analytics (ANxxxx)**, v18 provides the primitives needed to map the true depth of coverage.
 
-To operationalize this, I've built the **MITRE ATT&CK v18 Detection Depth Map**, a sunburst-based visualization that embraces the full v18 hierarchy:
+Mulling this over Christmas I found this article back from 2019 [Visualising Att&ck](https://medium.com/mitre-attack/visualizing-attack-f5e1766b42a6) Which I took as inspiration to create an interactive Sunburst visualisation of the new Mitre v18 framework which people could upload their own layers to simiarly to the Mitre Navigator tool. So with some obvious heavy lifting by LLM's I've built the **MITRE ATT&CK v18 Detection Depth Map**, a sunburst-based visualization that fully embraces the v18 hierarchy:
 
 > **Tactic → Technique → Detection Strategy → Analytic → Data Component**
 
