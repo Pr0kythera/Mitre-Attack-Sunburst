@@ -1,5 +1,6 @@
 {
   "name": "Test Layer - Direct Data Component Activation",
+  "timestamp": "2026-01-06T23:15:36"
   "version": "1.0",
   "domain": "enterprise-attack",
   "description": "Minimal test layer to verify import functionality. Uses only Data Component IDs without requiring Analytics to exist.",
