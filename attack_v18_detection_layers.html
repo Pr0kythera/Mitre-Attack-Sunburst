@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MITRE ATT&CK v18 Detection Depth Map - Multi-Layer</title>
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self'; 
+                   script-src 'self' 'unsafe-inline' https://d3js.org; 
+                   style-src 'self' 'unsafe-inline'; 
+                   connect-src https://raw.githubusercontent.com;">
+    <title>MITRE ATT&CK v18 Detection Depth Map - Multi-Layer (Secure)</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         :root {
@@ -55,10 +60,86 @@
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
-            padding: 20px;
+            padding: 0;
             box-shadow: 2px 0 5px rgba(0,0,0,0.5);
             z-index: 10;
+            overflow: hidden;
+        }
+
+        /* Tab System */
+        .tab-header {
+            display: flex;
+            background-color: #0a0a0a;
+            border-bottom: 2px solid var(--border-color);
+            padding: 0;
+            margin: 0;
+        }
+
+        .tab-button {
+            flex: 1;
+            background: transparent;
+            color: #888;
+            border: none;
+            border-bottom: 3px solid transparent;
+            padding: 15px 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tab-button:hover {
+            background: rgba(255,255,255,0.05);
+            color: #aaa;
+        }
+
+        .tab-button.active {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+            background: rgba(0, 188, 212, 0.1);
+        }
+
+        .tab-badge {
+            display: inline-block;
+            background: var(--accent-color);
+            color: #000;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-left: 5px;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        .tab-button:not(.active) .tab-badge {
+            background: #555;
+            color: #aaa;
+        }
+
+        .tab-content {
+            display: none;
+            flex-direction: column;
+            flex: 1;
             overflow-y: auto;
+            padding: 20px;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        /* Ensure buttons inside tabs maintain styling */
+        .tab-content button {
+            margin-top: 10px;
+        }
+
+        .tab-content button:first-of-type {
+            margin-top: 0;
         }
 
         #main-view {
@@ -110,6 +191,7 @@
             font-size: 0.9rem;
         }
         button:hover { background: #00acc1; }
+        button:disabled { background: #555; cursor: not-allowed; opacity: 0.5; }
         button.secondary { background: #333; color: #fff; margin-top: 10px; }
         button.danger { background: var(--danger-color); color: #fff; }
         button.small { padding: 5px 10px; font-size: 0.8rem; width: auto; }
@@ -190,6 +272,11 @@
             background: rgba(0, 188, 212, 0.1);
         }
 
+        .layer-item.warning {
+            border-color: var(--warning-color);
+            background: rgba(251, 192, 45, 0.1);
+        }
+
         .layer-checkbox {
             width: 18px;
             height: 18px;
@@ -213,6 +300,12 @@
         .layer-stats {
             font-size: 0.7rem;
             color: #888;
+            margin-top: 2px;
+        }
+
+        .layer-warning {
+            font-size: 0.7rem;
+            color: var(--warning-color);
             margin-top: 2px;
         }
 
@@ -301,6 +394,269 @@
             max-height: 500px;
             overflow-y: auto;
         }
+
+        /* Notification System */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            max-width: 400px;
+            z-index: 1001;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            animation: slideIn 0.3s ease;
+            word-wrap: break-word;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .notification-error {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .notification-warning {
+            background: var(--warning-color);
+            color: #000;
+        }
+
+        .notification-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .notification-info {
+            background: var(--accent-color);
+            color: #000;
+        }
+
+        .notification strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 1em;
+        }
+
+        .notification details {
+            margin-top: 10px;
+            font-size: 0.8em;
+            cursor: pointer;
+        }
+
+        .notification details pre {
+            margin-top: 5px;
+            padding: 5px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 2px;
+            overflow-x: auto;
+            max-height: 200px;
+        }
+
+        /* Loading overlay for layer import */
+        #layer-import-loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 30px;
+            border-radius: 8px;
+            z-index: 999;
+            text-align: center;
+            border: 2px solid var(--accent-color);
+        }
+
+        #layer-import-loading .spinner {
+            margin: 0 auto;
+        }
+
+        #layer-import-loading div {
+            color: var(--accent-color);
+            margin-top: 15px;
+            font-size: 1.1em;
+        }
+
+        /* Layer Comparison Modal */
+        #compare-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #compare-modal.active {
+            display: flex;
+        }
+
+        .compare-content {
+            background: var(--panel-bg);
+            border: 2px solid var(--accent-color);
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+        }
+
+        .compare-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 15px;
+        }
+
+        .compare-header h2 {
+            margin: 0;
+            color: var(--accent-color);
+            font-size: 1.5rem;
+        }
+
+        .close-modal {
+            background: transparent;
+            color: #888;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            text-align: center;
+            transition: color 0.2s;
+        }
+
+        .close-modal:hover {
+            color: var(--accent-color);
+        }
+
+        .compare-section {
+            margin-bottom: 25px;
+        }
+
+        .compare-section h3 {
+            color: var(--accent-color);
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .layer-comparison-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+        }
+
+        .layer-comparison-card h4 {
+            margin: 0 0 10px 0;
+            font-size: 0.9rem;
+            color: var(--accent-color);
+        }
+
+        .layer-comparison-card .timestamp {
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .coverage-metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .coverage-metric:last-child {
+            border-bottom: none;
+        }
+
+        .coverage-metric .label {
+            color: #aaa;
+            font-size: 0.85rem;
+        }
+
+        .coverage-metric .value {
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .coverage-diff {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .diff-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .diff-row:last-child {
+            border-bottom: none;
+        }
+
+        .diff-row .category {
+            color: #aaa;
+            font-size: 0.85rem;
+        }
+
+        .diff-row .change {
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .diff-row .change.positive {
+            color: var(--success-color);
+        }
+
+        .diff-row .change.negative {
+            color: var(--danger-color);
+        }
+
+        .diff-row .change.neutral {
+            color: #888;
+        }
+
+        .button-compare {
+            background: #9c27b0;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .button-compare:hover {
+            background: #7b1fa2;
+        }
+
+        .button-compare:disabled {
+            background: #555;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
     </style>
 </head>
 <body>
@@ -312,43 +668,82 @@
     </div>
 
     <div id="sidebar">
-        <h1>DETECTION DEPTH MAP</h1>
-        <div class="subtitle">MITRE ATT&CK v18 Native - Multi-Layer</div>
+        <!-- Tab Headers -->
+        <div class="tab-header">
+            <button class="tab-button active" onclick="switchTab('overview')" id="tab-btn-overview">
+                Overview
+            </button>
+            <button class="tab-button" onclick="switchTab('layers')" id="tab-btn-layers">
+                Detection Layers
+                <span class="tab-badge" id="layers-badge">0</span>
+            </button>
+        </div>
 
-        <div class="score-card">
-            <div class="score-label">Global Coverage</div>
-            <div class="score-big" id="global-score">0%</div>
-            <div style="margin-top: 5px; font-size: 0.8rem; color: #888;">
-                <span id="active-components">0</span> / <span id="total-components">0</span> Data Components Active
+        <!-- Tab 1: Overview (Global Coverage & Selection Details) -->
+        <div id="tab-overview" class="tab-content active">
+            <h1>DETECTION DEPTH MAP</h1>
+            <div class="subtitle">MITRE ATT&CK v18 Native - Multi-Layer (Secure)</div>
+
+            <div class="score-card">
+                <div class="score-label">Global Coverage</div>
+                <div class="score-big" id="global-score">0%</div>
+                <div style="margin-top: 5px; font-size: 0.8rem; color: #888;">
+                    <span id="active-components">0</span> / <span id="total-components">0</span> Data Components Active
+                </div>
+            </div>
+
+            <div id="node-details" style="display:none; margin-top: 20px;">
+                <h2>Selection Details</h2>
+                <div id="detail-id-badge" class="id-badge"></div>
+                <div id="detail-name" style="font-weight:bold; color:white; margin-bottom: 5px; font-size: 0.95rem;"></div>
+                <div id="detail-type" style="color:#888; font-size: 0.75rem; margin-bottom: 10px; text-transform: uppercase;"></div>
+                <div id="detail-log-source" class="log-source"></div>
+                
+                <div class="score-card" style="margin-top:15px; background: rgba(0,0,0,0.2);">
+                    <div class="score-label">Branch Coverage</div>
+                    <div class="score-big" id="node-score">0%</div>
+                </div>
+                
+                <p id="detail-desc" style="font-size: 0.8rem; color: #aaa; line-height: 1.4; max-height: 200px; overflow-y: auto; margin-top: 10px;"></p>
+            </div>
+
+            <div class="control-group" style="margin-top: auto; padding-top: 20px;">
+                <div style="font-size: 0.75rem; color: #666; margin-bottom: 10px; font-style: italic;">
+                    Click to zoom. Right-click for manual toggle (when no layers active).
+                </div>
+                <button class="secondary" onclick="resetZoom()">Reset Zoom</button>
             </div>
         </div>
 
-        <!-- Layer Management Section -->
-        <h2>Detection Layers</h2>
-        
-        <div class="file-drop-zone" id="dropZone">
-            <div style="font-size: 0.9rem; margin-bottom: 5px;">Drop v18 Detection Layer JSON</div>
-            <div class="help-text">or click to browse</div>
-        </div>
-        <input type="file" id="file-input" accept=".json" multiple>
+        <!-- Tab 2: Detection Layers -->
+        <div id="tab-layers" class="tab-content">
+            <h1>DETECTION LAYERS</h1>
+            <div class="subtitle">Import and manage detection coverage layers</div>
 
-        <div id="layers-list">
-            <!-- Layers will be added here dynamically -->
-        </div>
-
-        <div class="control-group">
-            <button onclick="exportActiveLayers()">Export Active Layers</button>
-            <button class="secondary" onclick="clearAllLayers()">Clear All Layers</button>
-        </div>
-
-        <!-- Schema Help Section -->
-        <div class="collapsible-section">
-            <div class="collapsible-header" onclick="toggleCollapsible('schema-help')">
-                <span style="font-size: 0.85rem; font-weight: bold;">Schema Reference</span>
-                <span id="schema-help-icon">▼</span>
+            <div class="file-drop-zone" id="dropZone">
+                <div style="font-size: 0.9rem; margin-bottom: 5px;">Drop v18 Detection Layer JSON</div>
+                <div class="help-text">or click to browse</div>
             </div>
-            <div class="collapsible-content" id="schema-help">
-                <div class="schema-example">
+            <input type="file" id="file-input" accept=".json" multiple>
+
+            <div id="layers-list">
+                <!-- Layers will be added here dynamically -->
+            </div>
+
+            <div class="control-group">
+                <button onclick="exportActiveLayers()" id="exportBtn">Export Active Layers</button>
+                <button class="button-compare" onclick="showCompareModal()" id="compareBtn" disabled>Compare Layers (2)</button>
+                <button class="secondary" onclick="clearAllLayers()" id="clearBtn">Clear All Layers</button>
+            </div>
+
+            <!-- Schema Help Section -->
+            <div class="collapsible-section" style="margin-top: 15px;">
+                <div class="collapsible-header" onclick="toggleCollapsible('schema-help')">
+                    <span style="font-size: 0.85rem; font-weight: bold;">Schema Reference</span>
+                    <span id="schema-help-icon">▼</span>
+                </div>
+                <div class="collapsible-content" id="schema-help">
+                    <div class="schema-example">
 {
   "name": "SIEM Coverage",
   "version": "1.0",
@@ -370,30 +765,9 @@
     }
   ]
 }
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <div id="node-details" style="display:none; margin-top: 20px;">
-            <h2>Selection Details</h2>
-            <div id="detail-id-badge" class="id-badge"></div>
-            <div id="detail-name" style="font-weight:bold; color:white; margin-bottom: 5px; font-size: 0.95rem;"></div>
-            <div id="detail-type" style="color:#888; font-size: 0.75rem; margin-bottom: 10px; text-transform: uppercase;"></div>
-            <div id="detail-log-source" class="log-source"></div>
-            
-            <div class="score-card" style="margin-top:15px; background: rgba(0,0,0,0.2);">
-                <div class="score-label">Branch Coverage</div>
-                <div class="score-big" id="node-score">0%</div>
-            </div>
-            
-            <p id="detail-desc" style="font-size: 0.8rem; color: #aaa; line-height: 1.4; max-height: 200px; overflow-y: auto; margin-top: 10px;"></p>
-        </div>
-
-        <div class="control-group" style="margin-top: auto; padding-top: 20px;">
-            <div style="font-size: 0.75rem; color: #666; margin-bottom: 10px; font-style: italic;">
-                Click to zoom. Right-click for manual toggle (when no layers active).
-            </div>
-            <button class="secondary" onclick="resetZoom()">Reset Zoom</button>
         </div>
     </div>
 
@@ -404,54 +778,819 @@
     
     <div id="tooltip"></div>
 
+    <!-- Layer Comparison Modal -->
+    <div id="compare-modal">
+        <div class="compare-content">
+            <div class="compare-header">
+                <h2>Layer Comparison</h2>
+                <button class="close-modal" onclick="closeCompareModal()">×</button>
+            </div>
+
+            <div class="compare-section">
+                <h3>Time Range</h3>
+                <div class="coverage-diff">
+                    <div class="diff-row">
+                        <span class="category">Time Difference</span>
+                        <span class="change" id="comp-time-diff">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="compare-section">
+                <h3>Layer Details</h3>
+                <div class="comparison-grid">
+                    <div class="layer-comparison-card">
+                        <h4 id="comp-older-name">Older Layer</h4>
+                        <div class="timestamp" id="comp-older-timestamp">-</div>
+                        <div class="coverage-metric">
+                            <span class="label">Global Coverage</span>
+                            <span class="value" id="comp-older-coverage">-</span>
+                        </div>
+                        <div class="coverage-metric">
+                            <span class="label">Detection Rules</span>
+                            <span class="value" id="comp-older-rules">-</span>
+                        </div>
+                    </div>
+                    <div class="layer-comparison-card">
+                        <h4 id="comp-newer-name">Newer Layer</h4>
+                        <div class="timestamp" id="comp-newer-timestamp">-</div>
+                        <div class="coverage-metric">
+                            <span class="label">Global Coverage</span>
+                            <span class="value" id="comp-newer-coverage">-</span>
+                        </div>
+                        <div class="coverage-metric">
+                            <span class="label">Detection Rules</span>
+                            <span class="value" id="comp-newer-rules">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="compare-section">
+                <h3>Coverage Changes</h3>
+                <div class="coverage-diff">
+                    <div class="diff-row">
+                        <span class="category">Global Coverage</span>
+                        <span class="change" id="comp-diff-global">-</span>
+                    </div>
+                    <div class="diff-row">
+                        <span class="category">Tactics</span>
+                        <span class="change" id="comp-diff-tactics">-</span>
+                    </div>
+                    <div class="diff-row">
+                        <span class="category">Techniques</span>
+                        <span class="change" id="comp-diff-techniques">-</span>
+                    </div>
+                    <div class="diff-row">
+                        <span class="category">Sub-Techniques</span>
+                        <span class="change" id="comp-diff-subtechniques">-</span>
+                    </div>
+                    <div class="diff-row">
+                        <span class="category">Detection Strategies</span>
+                        <span class="change" id="comp-diff-strategies">-</span>
+                    </div>
+                    <div class="diff-row">
+                        <span class="category">Analytics</span>
+                        <span class="change" id="comp-diff-analytics">-</span>
+                    </div>
+                    <div class="diff-row">
+                        <span class="category">Data Components</span>
+                        <span class="change" id="comp-diff-datacomponents">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <button onclick="copyComparisonAsMarkdown()">Copy as Markdown Table</button>
+                <button class="secondary" onclick="closeCompareModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
 <script>
+    // ============================================================================
+    // SECURITY & UTILITY FUNCTIONS
+    // ============================================================================
+    
+    /**
+     * Escape HTML to prevent XSS attacks
+     */
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+    }
+    
+    /**
+     * Sanitize color values to prevent CSS injection
+     */
+    function sanitizeColor(color) {
+        if (!color || typeof color !== 'string') return '#00bcd4';
+        // Only allow hex colors
+        if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+            return '#00bcd4';
+        }
+        return color;
+    }
+    
+    /**
+     * Validate and sanitize string with max length
+     */
+    function sanitizeString(str, maxLength = 200) {
+        if (typeof str !== 'string') return '';
+        return String(str).substring(0, maxLength);
+    }
+    
+    /**
+     * Validate array of strings
+     */
+    function sanitizeStringArray(arr) {
+        if (!Array.isArray(arr)) return [];
+        return arr.filter(item => typeof item === 'string').map(item => sanitizeString(item, 100));
+    }
+    
+    /**
+     * Notification System for consistent user feedback
+     */
+    const NotificationSystem = {
+        error: function(title, message, details = null) {
+            console.error(title, message, details);
+            this.show(title, message, 'error', details);
+        },
+        
+        warning: function(title, message, details = null) {
+            console.warn(title, message);
+            this.show(title, message, 'warning', details);
+        },
+        
+        success: function(title, message) {
+            console.log(title, message);
+            this.show(title, message, 'success');
+        },
+        
+        info: function(title, message) {
+            console.info(title, message);
+            this.show(title, message, 'info');
+        },
+        
+        show: function(title, message, type, details = null) {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            
+            let detailsHtml = '';
+            if (details) {
+                detailsHtml = `<details><summary>Details</summary><pre>${escapeHtml(JSON.stringify(details, null, 2))}</pre></details>`;
+            }
+            
+            notification.innerHTML = `
+                <strong>${escapeHtml(title)}</strong>
+                <div>${escapeHtml(message)}</div>
+                ${detailsHtml}
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.transition = 'opacity 0.5s, transform 0.5s';
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(400px)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        document.body.removeChild(notification);
+                    }
+                }, 500);
+            }, 8000);
+        }
+    };
+    
+    /**
+     * Rate limiter for localStorage saves
+     */
+    let lastSaveTime = 0;
+    const SAVE_COOLDOWN = 1000; // 1 second
+    
+    /**
+     * Validation schema for detection layers
+     */
+    function validateDetection(det) {
+        if (!det || typeof det !== 'object') return null;
+        
+        // Required fields
+        if (!det.ruleName || !det.ruleId) return null;
+        
+        // Must have at least one of: techniques or dataComponents
+        const hasTechniques = Array.isArray(det.techniques) && det.techniques.length > 0;
+        const hasDataComponents = Array.isArray(det.dataComponents) && det.dataComponents.length > 0;
+        
+        if (!hasTechniques && !hasDataComponents) return null;
+        
+        // Sanitize and return
+        return {
+            ruleName: sanitizeString(det.ruleName, 200),
+            ruleId: sanitizeString(det.ruleId, 100),
+            tactics: sanitizeStringArray(det.tactics || []),
+            techniques: sanitizeStringArray(det.techniques || []),
+            subtechniques: sanitizeStringArray(det.subtechniques || []),
+            detectionStrategies: sanitizeStringArray(det.detectionStrategies || []),
+            analytics: sanitizeStringArray(det.analytics || []),
+            dataComponents: sanitizeStringArray(det.dataComponents || []),
+            tables: sanitizeStringArray(det.tables || []),
+            score: typeof det.score === 'number' ? Math.max(0, Math.min(1, det.score)) : 1.0,
+            enabled: det.enabled !== false
+        };
+    }
+    
+    /**
+     * Validate layer structure
+     */
+    function validateLayerStructure(layer) {
+        return layer && 
+               typeof layer.id === 'number' && 
+               layer.id > 0 &&
+               layer.id < 1000000 &&
+               typeof layer.name === 'string' && 
+               Array.isArray(layer.detections) &&
+               typeof layer.enabled === 'boolean';
+    }
+
+    // ============================================================================
+    // GLOBAL STATE
+    // ============================================================================
+    
     const MITRE_STIX_URL = "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/refs/heads/master/enterprise-attack/enterprise-attack.json";
+    
+    // Fallback URL in case the primary fails (jsdelivr CDN)
+    const MITRE_STIX_URL_FALLBACK = "https://cdn.jsdelivr.net/gh/mitre-attack/attack-stix-data@master/enterprise-attack/enterprise-attack.json";
     
     let fullDataset = null;
     let svg, g, path, root, partition, arc, radius;
-    let detectionLayers = []; // Array of imported detection layers
+    let detectionLayers = [];
     let layerIdCounter = 0;
+    let initializationComplete = false;
+    let activeTab = 'overview'; // Track active tab
     
-    async function init() {
+    // Event handler references to prevent memory leaks
+    const eventHandlers = {
+        click: null,
+        contextmenu: null,
+        mouseover: null,
+        mouseout: null
+    };
+    
+    // ============================================================================
+    // TAB MANAGEMENT
+    // ============================================================================
+    
+    /**
+     * Switch between sidebar tabs
+     */
+    function switchTab(tabName) {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Deactivate all tab buttons
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Show selected tab
+        const targetTab = document.getElementById(`tab-${tabName}`);
+        const targetButton = document.getElementById(`tab-btn-${tabName}`);
+        
+        if (targetTab) {
+            targetTab.classList.add('active');
+        }
+        
+        if (targetButton) {
+            targetButton.classList.add('active');
+        }
+        
+        activeTab = tabName;
+        
+        // Save preference to localStorage
         try {
-            updateLoader("Fetching MITRE v18 Data...", "Download in progress...");
-            const response = await fetch(MITRE_STIX_URL);
-            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            const stixData = await response.json();
-            
-            updateLoader("Parsing STIX Bundle...", "Processing objects...");
-            
-            setTimeout(() => {
-                try {
-                    const hierarchy = parseStixToHierarchy(stixData);
-                    fullDataset = hierarchy;
-                    
-                    console.log("Hierarchy root:", fullDataset);
-                    console.log("Number of tactics:", fullDataset.children?.length || 0);
-                    
-                    // Load saved layers from localStorage
-                    loadSavedLayers();
-                    
-                    applyLayersToCoverage();
-                    drawChart(fullDataset);
-                    
-                    document.getElementById("loader").style.display = "none";
-                    console.log("Visualization complete");
-                } catch (parseError) {
-                    console.error("Parse error:", parseError);
-                    alert("Parsing Error: " + parseError.message);
-                }
-            }, 100);
-            
+            localStorage.setItem('mitre_v18_active_tab', tabName);
         } catch (error) {
-            console.error("Init error:", error);
-            alert("Failed to load MITRE data: " + error.message);
+            console.warn('Failed to save tab preference:', error);
+        }
+        
+        console.log(`Switched to tab: ${tabName}`);
+    }
+    
+    /**
+     * Load saved tab preference
+     */
+    function loadTabPreference() {
+        try {
+            const savedTab = localStorage.getItem('mitre_v18_active_tab');
+            if (savedTab && (savedTab === 'overview' || savedTab === 'layers')) {
+                switchTab(savedTab);
+            }
+        } catch (error) {
+            console.warn('Failed to load tab preference:', error);
         }
     }
     
+    // Make switchTab available globally
+    window.switchTab = switchTab;
+    
+    // ============================================================================
+    // LAYER COMPARISON
+    // ============================================================================
+    
+    let comparisonData = null; // Store comparison results
+    
+    /**
+     * Show the layer comparison modal
+     */
+    function showCompareModal() {
+        if (detectionLayers.length !== 2) {
+            NotificationSystem.warning('Compare Layers', 'Exactly 2 layers must be loaded to compare');
+            return;
+        }
+        
+        // Perform comparison
+        comparisonData = compareLayers(detectionLayers[0], detectionLayers[1]);
+        
+        if (!comparisonData) {
+            NotificationSystem.error('Compare Failed', 'Unable to compare layers. Ensure both layers have timestamp fields.');
+            return;
+        }
+        
+        // Populate modal with comparison data
+        populateComparisonModal(comparisonData);
+        
+        // Show modal
+        document.getElementById('compare-modal').classList.add('active');
+    }
+    
+    /**
+     * Close the comparison modal
+     */
+    function closeCompareModal() {
+        document.getElementById('compare-modal').classList.remove('active');
+    }
+    
+    /**
+     * Compare two layers and calculate differences
+     */
+    function compareLayers(layer1, layer2) {
+        // Validate timestamps
+        const ts1 = layer1.timestamp ? new Date(layer1.timestamp) : null;
+        const ts2 = layer2.timestamp ? new Date(layer2.timestamp) : null;
+        
+        if (!ts1 || !ts2 || isNaN(ts1.getTime()) || isNaN(ts2.getTime())) {
+            console.error('Invalid timestamps:', { layer1: layer1.timestamp, layer2: layer2.timestamp });
+            return null;
+        }
+        
+        // Determine older and newer
+        const older = ts1 < ts2 ? layer1 : layer2;
+        const newer = ts1 < ts2 ? layer2 : layer1;
+        const olderDate = ts1 < ts2 ? ts1 : ts2;
+        const newerDate = ts1 < ts2 ? ts2 : ts1;
+        
+        // Calculate time difference in days
+        const timeDiffMs = newerDate - olderDate;
+        let timeDiffDays = Math.ceil(timeDiffMs / (1000 * 60 * 60 * 24));
+        
+        // Round up to 1 day if within 24 hours
+        if (timeDiffDays === 0) {
+            timeDiffDays = 1;
+        }
+        
+        // Calculate coverage for each layer
+        const olderCoverage = calculateLayerCoverage(older);
+        const newerCoverage = calculateLayerCoverage(newer);
+        
+        // Calculate differences
+        const diffs = {
+            global: newerCoverage.global - olderCoverage.global,
+            tactics: newerCoverage.tactics - olderCoverage.tactics,
+            techniques: newerCoverage.techniques - olderCoverage.techniques,
+            subtechniques: newerCoverage.subtechniques - olderCoverage.subtechniques,
+            strategies: newerCoverage.strategies - olderCoverage.strategies,
+            analytics: newerCoverage.analytics - olderCoverage.analytics,
+            dataComponents: newerCoverage.dataComponents - olderCoverage.dataComponents
+        };
+        
+        return {
+            older: {
+                name: older.name,
+                timestamp: olderDate,
+                coverage: olderCoverage,
+                rules: older.detections.length
+            },
+            newer: {
+                name: newer.name,
+                timestamp: newerDate,
+                coverage: newerCoverage,
+                rules: newer.detections.length
+            },
+            timeDiffDays: timeDiffDays,
+            diffs: diffs
+        };
+    }
+    
+    /**
+     * Calculate coverage percentages for a single layer
+     */
+    function calculateLayerCoverage(layer) {
+        if (!fullDataset) {
+            return {
+                global: 0,
+                tactics: 0,
+                techniques: 0,
+                subtechniques: 0,
+                strategies: 0,
+                analytics: 0,
+                dataComponents: 0
+            };
+        }
+        
+        // Create a temporary copy of the dataset
+        const tempDataset = JSON.parse(JSON.stringify(fullDataset));
+        
+        // Reset all activation states
+        resetActivationStates(tempDataset);
+        
+        // Apply only this layer
+        layer.detections.forEach(detection => {
+            if (detection.enabled === false) return;
+            
+            const techniques = [...(detection.techniques || []), ...(detection.subtechniques || [])];
+            const strategies = detection.detectionStrategies || [];
+            const analytics = detection.analytics || [];
+            const dataComponents = detection.dataComponents || [];
+            
+            activateContextual(tempDataset, {
+                techniques: techniques,
+                strategies: strategies,
+                analytics: analytics,
+                dataComponents: dataComponents,
+                layerId: layer.id,
+                ruleName: detection.ruleName
+            });
+        });
+        
+        // Calculate coverage
+        calculateCoverage(tempDataset);
+        
+        // Count coverage by type
+        const counts = countCoverageByType(tempDataset);
+        
+        return {
+            global: Math.round(tempDataset.score * 100),
+            tactics: counts.tactics.percentage,
+            techniques: counts.techniques.percentage,
+            subtechniques: counts.subtechniques.percentage,
+            strategies: counts.strategies.percentage,
+            analytics: counts.analytics.percentage,
+            dataComponents: counts.dataComponents.percentage
+        };
+    }
+    
+    /**
+     * Count coverage by node type
+     */
+    function countCoverageByType(node) {
+        const counts = {
+            tactics: { total: 0, active: 0, percentage: 0 },
+            techniques: { total: 0, active: 0, percentage: 0 },
+            subtechniques: { total: 0, active: 0, percentage: 0 },
+            strategies: { total: 0, active: 0, percentage: 0 },
+            analytics: { total: 0, active: 0, percentage: 0 },
+            dataComponents: { total: 0, active: 0, percentage: 0 }
+        };
+        
+        function traverse(n) {
+            if (!n) return;
+            
+            // Count by type
+            if (n.type === 'Tactic') {
+                counts.tactics.total++;
+                if (n.score > 0) counts.tactics.active++;
+            } else if (n.type === 'Technique') {
+                counts.techniques.total++;
+                if (n.score > 0) counts.techniques.active++;
+            } else if (n.type === 'Sub-Technique') {
+                counts.subtechniques.total++;
+                if (n.score > 0) counts.subtechniques.active++;
+            } else if (n.type === 'Detection Strategy') {
+                counts.strategies.total++;
+                if (n.score > 0) counts.strategies.active++;
+            } else if (n.type === 'Analytic') {
+                counts.analytics.total++;
+                if (n.active) counts.analytics.active++;
+            } else if (n.type === 'Data Component') {
+                counts.dataComponents.total++;
+                if (n.active) counts.dataComponents.active++;
+            }
+            
+            // Recurse
+            if (n.children && n.children.length > 0) {
+                n.children.forEach(child => traverse(child));
+            }
+        }
+        
+        traverse(node);
+        
+        // Calculate percentages
+        Object.keys(counts).forEach(key => {
+            if (counts[key].total > 0) {
+                counts[key].percentage = Math.round((counts[key].active / counts[key].total) * 100);
+            }
+        });
+        
+        return counts;
+    }
+    
+    /**
+     * Populate the comparison modal with data
+     */
+    function populateComparisonModal(data) {
+        // Time difference
+        const dayText = data.timeDiffDays === 1 ? '1 day' : `${data.timeDiffDays} days`;
+        document.getElementById('comp-time-diff').textContent = dayText;
+        
+        // Older layer
+        document.getElementById('comp-older-name').textContent = data.older.name;
+        document.getElementById('comp-older-timestamp').textContent = data.older.timestamp.toLocaleString();
+        document.getElementById('comp-older-coverage').textContent = `${data.older.coverage.global}%`;
+        document.getElementById('comp-older-rules').textContent = data.older.rules;
+        
+        // Newer layer
+        document.getElementById('comp-newer-name').textContent = data.newer.name;
+        document.getElementById('comp-newer-timestamp').textContent = data.newer.timestamp.toLocaleString();
+        document.getElementById('comp-newer-coverage').textContent = `${data.newer.coverage.global}%`;
+        document.getElementById('comp-newer-rules').textContent = data.newer.rules;
+        
+        // Differences
+        setDiffElement('comp-diff-global', data.diffs.global);
+        setDiffElement('comp-diff-tactics', data.diffs.tactics);
+        setDiffElement('comp-diff-techniques', data.diffs.techniques);
+        setDiffElement('comp-diff-subtechniques', data.diffs.subtechniques);
+        setDiffElement('comp-diff-strategies', data.diffs.strategies);
+        setDiffElement('comp-diff-analytics', data.diffs.analytics);
+        setDiffElement('comp-diff-datacomponents', data.diffs.dataComponents);
+    }
+    
+    /**
+     * Set a difference element with appropriate styling
+     */
+    function setDiffElement(elementId, diff) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        
+        const sign = diff > 0 ? '+' : '';
+        element.textContent = `${sign}${diff}%`;
+        
+        // Set color class
+        element.className = 'change';
+        if (diff > 0) {
+            element.classList.add('positive');
+        } else if (diff < 0) {
+            element.classList.add('negative');
+        } else {
+            element.classList.add('neutral');
+        }
+    }
+    
+    /**
+     * Copy comparison as markdown table
+     */
+    function copyComparisonAsMarkdown() {
+        if (!comparisonData) {
+            NotificationSystem.error('Copy Failed', 'No comparison data available');
+            return;
+        }
+        
+        const data = comparisonData;
+        const dayText = data.timeDiffDays === 1 ? '1 day' : `${data.timeDiffDays} days`;
+        
+        // Format differences with signs
+        const formatDiff = (diff) => {
+            const sign = diff > 0 ? '+' : '';
+            return `${sign}${diff}%`;
+        };
+        
+        const markdown = `# Detection Coverage Comparison
+
+## Summary
+- **Time Period:** ${dayText}
+- **Older Layer:** ${data.older.name} (${data.older.timestamp.toISOString().split('T')[0]})
+- **Newer Layer:** ${data.newer.name} (${data.newer.timestamp.toISOString().split('T')[0]})
+
+## Coverage Changes
+
+| Metric | Change |
+|--------|--------|
+| Days | ${data.timeDiffDays} |
+| Global Coverage | ${formatDiff(data.diffs.global)} |
+| Tactics | ${formatDiff(data.diffs.tactics)} |
+| Techniques | ${formatDiff(data.diffs.techniques)} |
+| Sub-Techniques | ${formatDiff(data.diffs.subtechniques)} |
+| Detection Strategies | ${formatDiff(data.diffs.strategies)} |
+| Analytics | ${formatDiff(data.diffs.analytics)} |
+| Data Components | ${formatDiff(data.diffs.dataComponents)} |
+
+## Layer Details
+
+| Layer | Date | Global Coverage | Rules |
+|-------|------|-----------------|-------|
+| ${data.older.name} | ${data.older.timestamp.toISOString().split('T')[0]} | ${data.older.coverage.global}% | ${data.older.rules} |
+| ${data.newer.name} | ${data.newer.timestamp.toISOString().split('T')[0]} | ${data.newer.coverage.global}% | ${data.newer.rules} |
+`;
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(markdown).then(() => {
+            NotificationSystem.success('Copied!', 'Comparison copied to clipboard as Markdown');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            NotificationSystem.error('Copy Failed', 'Could not copy to clipboard. Check browser permissions.');
+        });
+    }
+    
+    /**
+     * Update compare button state based on layer count
+     */
+    function updateCompareButtonState() {
+        const compareBtn = document.getElementById('compareBtn');
+        if (!compareBtn) return;
+        
+        if (detectionLayers.length === 2) {
+            compareBtn.disabled = false;
+        } else {
+            compareBtn.disabled = true;
+        }
+    }
+    
+    // Make functions available globally
+    window.showCompareModal = showCompareModal;
+    window.closeCompareModal = closeCompareModal;
+    window.copyComparisonAsMarkdown = copyComparisonAsMarkdown;
+    
+    // ============================================================================
+    // INITIALIZATION
+    // ============================================================================
+    
+    async function init() {
+        let lastError = null;
+        const urlsToTry = [MITRE_STIX_URL, MITRE_STIX_URL_FALLBACK];
+        
+        for (let i = 0; i < urlsToTry.length; i++) {
+            const currentUrl = urlsToTry[i];
+            const isFallback = i > 0;
+            
+            try {
+                if (isFallback) {
+                    updateLoader("Trying fallback source...", "Attempting CDN mirror");
+                    console.log('Primary URL failed, trying fallback:', currentUrl);
+                } else {
+                    updateLoader("Fetching MITRE v18 Data...", "Download in progress...");
+                }
+                
+                // Setup timeout for fetch
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+                
+                const response = await fetch(currentUrl, {
+                    signal: controller.signal,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                // Validate content type (be lenient - GitHub raw content may return text/plain)
+                const contentType = response.headers.get('content-type');
+                const acceptableTypes = ['application/json', 'text/plain', 'text/json'];
+                const isValidContentType = contentType && acceptableTypes.some(type => contentType.includes(type));
+                
+                if (!isValidContentType) {
+                    console.warn('Unexpected content-type:', contentType, '- attempting to parse anyway');
+                }
+                
+                // Check size before parsing
+                const contentLength = response.headers.get('content-length');
+                if (contentLength && parseInt(contentLength) > 50 * 1024 * 1024) {
+                    throw new Error('Response too large (>50MB)');
+                }
+                
+                // Attempt to parse JSON regardless of content-type
+                // (GitHub raw files often return text/plain even for .json files)
+                let stixData;
+                try {
+                    stixData = await response.json();
+                } catch (parseError) {
+                    console.error('JSON parse error:', parseError);
+                    throw new Error(`Failed to parse MITRE data as JSON. The file may be corrupted or the GitHub API may be experiencing issues. Error: ${parseError.message}`);
+                }
+                
+                // Validate basic structure
+                if (!stixData || typeof stixData !== 'object') {
+                    throw new Error('Invalid STIX data: response is not a valid JSON object');
+                }
+                
+                if (!Array.isArray(stixData.objects)) {
+                    throw new Error('Invalid STIX data structure: missing "objects" array. This may indicate the MITRE repository structure has changed.');
+                }
+                
+                if (stixData.objects.length === 0) {
+                    throw new Error('Invalid STIX data: "objects" array is empty');
+                }
+                
+                console.log(`Successfully loaded MITRE v18 data: ${stixData.objects.length} objects from ${isFallback ? 'fallback' : 'primary'} source`);
+                
+                updateLoader("Parsing STIX Bundle...", "Processing " + stixData.objects.length + " objects...");
+                
+                // Use requestAnimationFrame for better timing
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                
+                const hierarchy = parseStixToHierarchy(stixData);
+                
+                if (!hierarchy || !hierarchy.children) {
+                    throw new Error('Failed to build hierarchy from STIX data');
+                }
+                
+                fullDataset = hierarchy;
+                
+                console.log("Hierarchy root:", fullDataset);
+                console.log("Number of tactics:", fullDataset.children?.length || 0);
+                
+                // Load saved layers from localStorage
+                loadSavedLayers();
+                
+                // Load saved tab preference
+                loadTabPreference();
+                
+                applyLayersToCoverage();
+                drawChart(fullDataset);
+                
+                initializationComplete = true;
+                document.getElementById("loader").style.display = "none";
+                console.log("Visualization complete");
+                
+                NotificationSystem.success('Initialization Complete', `MITRE ATT&CK v18 data loaded successfully${isFallback ? ' (using fallback source)' : ''}`);
+                
+                // Success - exit the retry loop
+                return;
+                
+            } catch (error) {
+                console.error(`Failed to load from ${currentUrl}:`, error);
+                lastError = error;
+                
+                // If this was the last URL, show error
+                if (i === urlsToTry.length - 1) {
+                    break;
+                }
+                
+                // Otherwise, continue to next URL
+                console.log('Will try next source...');
+            }
+        }
+        
+        // If we get here, all URLs failed
+        console.error("All data sources failed. Last error:", lastError);
+        
+        const loaderDiv = document.getElementById("loader");
+        loaderDiv.innerHTML = `
+            <div style="color: #f44336; text-align: center; max-width: 600px; padding: 20px;">
+                <h2 style="margin-bottom: 15px;">Failed to Load MITRE Data</h2>
+                <p style="margin-bottom: 20px;">${escapeHtml(lastError.message)}</p>
+                <button onclick="location.reload()" style="padding: 10px 20px; font-size: 1em; cursor: pointer; background: #00bcd4; border: none; border-radius: 4px; color: #000; font-weight: bold;">
+                    Retry
+                </button>
+                <div style="margin-top: 20px; font-size: 0.9em; color: #ccc; text-align: left; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 4px;">
+                    <strong>Troubleshooting:</strong><br/>
+                    • Check your internet connection<br/>
+                    • Verify you can access github.com<br/>
+                    • Check if your firewall/proxy is blocking GitHub<br/>
+                    • Try disabling browser extensions<br/>
+                    • Clear browser cache and retry<br/>
+                    • If GitHub is down, try again later
+                </div>
+                <div style="margin-top: 15px; font-size: 0.75em; color: #888;">
+                    Attempted sources: GitHub Raw + JSDelivr CDN
+                </div>
+            </div>
+        `;
+        
+        NotificationSystem.error('Initialization Failed', lastError.message);
+    }
+    
     function updateLoader(text, subtext) {
-        document.getElementById("loading-text").innerText = text;
-        document.getElementById("loading-subtext").innerText = subtext;
+        const loadingText = document.getElementById("loading-text");
+        const loadingSubtext = document.getElementById("loading-subtext");
+        if (loadingText) loadingText.innerText = text;
+        if (loadingSubtext) loadingSubtext.innerText = subtext;
     }
     
     function parseStixToHierarchy(stixData) {
@@ -505,18 +1644,34 @@
             const tacticId = tactic.external_references?.[0]?.external_id || tactic.id;
             
             tacticsMap[tactic.id] = {
-                name: tactic.name,
-                shortName: shortName,
+                name: sanitizeString(tactic.name, 200),
+                shortName: sanitizeString(shortName, 100),
                 type: "Tactic",
                 id: tacticId,
                 stixId: tactic.id,
-                description: tactic.description,
+                description: sanitizeString(tactic.description, 5000),
                 _children: []
             };
         });
         
-        // Add techniques to tactics
-        techniques.forEach(technique => {
+        // Separate techniques and sub-techniques
+        const parentTechniques = techniques.filter(t => {
+            const extId = t.external_references?.[0]?.external_id;
+            return extId && !extId.includes('.'); // No dot means parent technique
+        });
+        
+        const subTechniques = techniques.filter(t => {
+            const extId = t.external_references?.[0]?.external_id;
+            return extId && extId.includes('.'); // Has dot means sub-technique
+        });
+        
+        console.log(`Found ${parentTechniques.length} parent techniques and ${subTechniques.length} sub-techniques`);
+        
+        // Create a map to store technique nodes by their ID for easy lookup
+        const techniqueNodesMap = {};
+        
+        // Add parent techniques to tactics
+        parentTechniques.forEach(technique => {
             const killChainPhases = technique.kill_chain_phases || [];
             const techniqueId = technique.external_references?.[0]?.external_id || technique.id;
             
@@ -528,25 +1683,125 @@
                     
                     if (tacticEntry) {
                         const techNode = {
-                            name: technique.name,
+                            name: sanitizeString(technique.name, 200),
                             type: "Technique",
                             id: techniqueId,
                             stixId: technique.id,
-                            description: technique.description,
-                            _children: []
+                            description: sanitizeString(technique.description, 5000),
+                            _children: [] // Will hold sub-techniques
                         };
                         tacticEntry._children.push(techNode);
+                        
+                        // Store reference for sub-technique mapping
+                        if (!techniqueNodesMap[techniqueId]) {
+                            techniqueNodesMap[techniqueId] = [];
+                        }
+                        techniqueNodesMap[techniqueId].push(techNode);
                     }
                 }
             });
         });
         
-        console.log(`Built tactics with techniques`);
+        // Add sub-techniques as children of their parent techniques
+        let subTechniquesAdded = 0;
+        subTechniques.forEach(subTech => {
+            const subTechId = subTech.external_references?.[0]?.external_id;
+            if (!subTechId) return;
+            
+            // Extract parent technique ID (e.g., T1110.001 -> T1110)
+            const parentId = subTechId.split('.')[0];
+            
+            // Find all instances of parent technique (may be in multiple tactics)
+            const parentNodes = techniqueNodesMap[parentId];
+            if (parentNodes) {
+                parentNodes.forEach(parentNode => {
+                    const subTechNode = {
+                        name: sanitizeString(subTech.name, 200),
+                        type: "Sub-Technique",
+                        id: subTechId,
+                        stixId: subTech.id,
+                        parentTechniqueId: parentId,
+                        description: sanitizeString(subTech.description, 5000),
+                        _children: [] // Will hold detection strategies
+                    };
+                    parentNode._children.push(subTechNode);
+                    subTechniquesAdded++;
+                });
+            } else {
+                console.warn(`Parent technique ${parentId} not found for sub-technique ${subTechId}`);
+            }
+        });
+        
+        console.log(`Built tactics with ${parentTechniques.length} techniques and ${subTechniquesAdded} sub-technique placements`);
         
         // Process detection strategies and their analytics
         let strategiesAdded = 0;
         let analyticsAdded = 0;
         let dataComponentsAdded = 0;
+        
+        // Helper function to find and add strategies to technique/sub-technique nodes
+        function addStrategyToNode(node, strategyId, strategy, sourceToTargets, objectMap) {
+            const stratNode = {
+                name: sanitizeString(strategy.name, 200),
+                type: "Detection Strategy",
+                id: strategyId,
+                stixId: strategy.id,
+                description: sanitizeString(strategy.description, 5000),
+                children: []
+            };
+            node._children.push(stratNode);
+            strategiesAdded++;
+            
+            // Add analytics referenced by this strategy
+            const analyticRefs = strategy.x_mitre_analytic_refs || [];
+            analyticRefs.forEach(analyticRef => {
+                const analytic = objectMap[analyticRef];
+                if (analytic && analytic.type === 'x-mitre-analytic') {
+                    const analyticId = analytic.external_references?.[0]?.external_id || 'AN-' + analytic.id.slice(-4);
+                    
+                    const analyticNode = {
+                        name: sanitizeString(analytic.name, 200),
+                        type: "Analytic",
+                        id: analyticId,
+                        stixId: analytic.id,
+                        description: sanitizeString(analytic.description, 5000),
+                        active: false,
+                        platforms: sanitizeStringArray(analytic.x_mitre_platforms || []),
+                        children: [],
+                        layerSources: []
+                    };
+                    stratNode.children.push(analyticNode);
+                    analyticsAdded++;
+                    
+                    // Add data components referenced by this analytic via log sources
+                    const logSourceRefs = analytic.x_mitre_log_source_references || [];
+                    logSourceRefs.forEach(logSourceRef => {
+                        if (logSourceRef.x_mitre_data_component_ref) {
+                            const dataComponent = objectMap[logSourceRef.x_mitre_data_component_ref];
+                            if (dataComponent && dataComponent.type === 'x-mitre-data-component') {
+                                const dataComponentId = dataComponent.external_references?.[0]?.external_id || 'DC-' + dataComponent.id.slice(-4);
+                                
+                                // Check if this data component is already added
+                                if (!analyticNode.children.find(dc => dc.stixId === dataComponent.id)) {
+                                    analyticNode.children.push({
+                                        name: sanitizeString(dataComponent.name, 200),
+                                        type: "Data Component",
+                                        id: dataComponentId,
+                                        stixId: dataComponent.id,
+                                        description: sanitizeString(dataComponent.description, 5000),
+                                        active: false,
+                                        logSourceName: sanitizeString(logSourceRef.name, 200),
+                                        logSourceChannel: sanitizeString(logSourceRef.channel, 200),
+                                        layerSources: []
+                                    });
+                                    dataComponentsAdded++;
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+        }
         
         detectionStrategies.forEach(strategy => {
             const strategyId = strategy.external_references?.[0]?.external_id || 'DET-' + strategy.id.slice(-4);
@@ -560,71 +1815,24 @@
                 const technique = objectMap[techniqueId];
                 
                 if (technique && technique.type === 'attack-pattern') {
-                    // Find this technique in all tactics
+                    const techniqueExtId = technique.external_references?.[0]?.external_id;
+                    const isSubTechnique = techniqueExtId && techniqueExtId.includes('.');
+                    
+                    // Find this technique/sub-technique in all tactics
                     Object.values(tacticsMap).forEach(tactic => {
-                        tactic._children.forEach(tech => {
-                            if (tech.stixId === techniqueId) {
-                                // Add strategy node
-                                const stratNode = {
-                                    name: strategy.name,
-                                    type: "Detection Strategy",
-                                    id: strategyId,
-                                    stixId: strategy.id,
-                                    description: strategy.description,
-                                    children: []
-                                };
-                                tech._children.push(stratNode);
-                                strategiesAdded++;
-                                
-                                // Add analytics referenced by this strategy
-                                const analyticRefs = strategy.x_mitre_analytic_refs || [];
-                                analyticRefs.forEach(analyticRef => {
-                                    const analytic = objectMap[analyticRef];
-                                    if (analytic && analytic.type === 'x-mitre-analytic') {
-                                        const analyticId = analytic.external_references?.[0]?.external_id || 'AN-' + analytic.id.slice(-4);
-                                        
-                                        const analyticNode = {
-                                            name: analytic.name,
-                                            type: "Analytic",
-                                            id: analyticId,
-                                            stixId: analytic.id,
-                                            description: analytic.description,
-                                            active: false,
-                                            platforms: analytic.x_mitre_platforms || [],
-                                            children: [],
-                                            layerSources: [] // Track which layers activate this
-                                        };
-                                        stratNode.children.push(analyticNode);
-                                        analyticsAdded++;
-                                        
-                                        // Add data components referenced by this analytic via log sources
-                                        const logSourceRefs = analytic.x_mitre_log_source_references || [];
-                                        logSourceRefs.forEach(logSourceRef => {
-                                            if (logSourceRef.x_mitre_data_component_ref) {
-                                                const dataComponent = objectMap[logSourceRef.x_mitre_data_component_ref];
-                                                if (dataComponent && dataComponent.type === 'x-mitre-data-component') {
-                                                    const dataComponentId = dataComponent.external_references?.[0]?.external_id || 'DC-' + dataComponent.id.slice(-4);
-                                                    
-                                                    // Check if this data component is already added
-                                                    if (!analyticNode.children.find(dc => dc.stixId === dataComponent.id)) {
-                                                        analyticNode.children.push({
-                                                            name: dataComponent.name,
-                                                            type: "Data Component",
-                                                            id: dataComponentId,
-                                                            stixId: dataComponent.id,
-                                                            description: dataComponent.description,
-                                                            active: false,
-                                                            logSourceName: logSourceRef.name,
-                                                            logSourceChannel: logSourceRef.channel,
-                                                            layerSources: [] // Track which layers activate this
-                                                        });
-                                                        dataComponentsAdded++;
-                                                    }
-                                                }
-                                            }
-                                        });
+                        tactic._children.forEach(parentTech => {
+                            if (isSubTechnique) {
+                                // This is a sub-technique, look in parent's children
+                                parentTech._children.forEach(subTech => {
+                                    if (subTech.stixId === techniqueId && subTech.type === "Sub-Technique") {
+                                        addStrategyToNode(subTech, strategyId, strategy, sourceToTargets, objectMap);
                                     }
                                 });
+                            } else {
+                                // This is a parent technique
+                                if (parentTech.stixId === techniqueId && parentTech.type === "Technique") {
+                                    addStrategyToNode(parentTech, strategyId, strategy, sourceToTargets, objectMap);
+                                }
                             }
                         });
                     });
@@ -634,7 +1842,7 @@
         
         console.log(`Added ${strategiesAdded} strategy nodes, ${analyticsAdded} analytic nodes, and ${dataComponentsAdded} data component nodes to the hierarchy`);
         
-        // Convert to final structure
+        // Convert to final structure with proper hierarchy
         const root = {
             name: "ATT&CK Enterprise",
             type: "Root",
@@ -644,13 +1852,32 @@
                 type: tactic.type,
                 id: tactic.id,
                 description: tactic.description,
-                children: tactic._children.map(tech => ({
-                    name: tech.name,
-                    type: tech.type,
-                    id: tech.id,
-                    description: tech.description,
-                    children: tech._children
-                }))
+                children: tactic._children.map(tech => {
+                    // This is a parent technique
+                    return {
+                        name: tech.name,
+                        type: tech.type,
+                        id: tech.id,
+                        description: tech.description,
+                        children: tech._children.map(child => {
+                            // Child could be a sub-technique or detection strategy
+                            if (child.type === "Sub-Technique") {
+                                // Sub-technique with its own detection strategies
+                                return {
+                                    name: child.name,
+                                    type: child.type,
+                                    id: child.id,
+                                    parentTechniqueId: child.parentTechniqueId,
+                                    description: child.description,
+                                    children: child._children // Detection strategies for this sub-technique
+                                };
+                            } else {
+                                // Detection strategy directly under technique
+                                return child;
+                            }
+                        })
+                    };
+                })
             }))
         };
         
@@ -699,7 +1926,6 @@
             function search(node, path = []) {
                 const newPath = [...path, node.name];
                 if (node.id === techniqueId || node.name === techniqueId) {
-                    // Found the technique, collect all analytics under it
                     function collectAnalytics(n) {
                         if (n.type === 'Analytic') results.push({ id: n.id, name: n.name });
                         if (n.children) n.children.forEach(collectAnalytics);
@@ -724,28 +1950,71 @@
         return root;
     }
     
-    // Layer Management Functions
+    // ============================================================================
+    // LAYER MANAGEMENT FUNCTIONS
+    // ============================================================================
     
     function importDetectionLayer(layerData, filename = "Imported Layer") {
+        if (!initializationComplete) {
+            NotificationSystem.warning('Please Wait', 'Initialization in progress. Please wait for MITRE data to load.');
+            return null;
+        }
+        
         try {
+            const errors = [];
+            const warnings = [];
+            
             // Validate layer structure
             if (!layerData.detections || !Array.isArray(layerData.detections)) {
                 throw new Error("Invalid layer format: 'detections' array required");
             }
             
+            if (layerData.detections.length === 0) {
+                warnings.push("Layer contains 0 detections");
+            }
+            
+            // Validate and sanitize detections
+            const validDetections = [];
+            let skippedCount = 0;
+            
+            layerData.detections.forEach((det, idx) => {
+                const validated = validateDetection(det);
+                if (validated) {
+                    validDetections.push(validated);
+                } else {
+                    skippedCount++;
+                    console.warn(`Detection at index ${idx} skipped: missing required fields`, det);
+                }
+            });
+            
+            if (validDetections.length === 0) {
+                throw new Error("No valid detections found. Each detection must have: ruleName, ruleId, and at least one of (techniques, dataComponents)");
+            }
+            
+            if (skippedCount > 0) {
+                warnings.push(`${skippedCount} detection(s) skipped due to missing required fields`);
+            }
+            
             const layerId = ++layerIdCounter;
             const layer = {
                 id: layerId,
-                name: layerData.name || filename,
-                version: layerData.version || "1.0",
-                domain: layerData.domain || "enterprise-attack",
-                description: layerData.description || "",
-                detections: layerData.detections,
+                name: sanitizeString(layerData.name || filename, 200),
+                version: sanitizeString(layerData.version || "1.0", 20),
+                domain: sanitizeString(layerData.domain || "enterprise-attack", 50),
+                description: sanitizeString(layerData.description || "", 1000),
+                timestamp: layerData.timestamp || null, // Preserve timestamp for comparisons
+                detections: validDetections,
                 enabled: true,
                 color: getLayerColor(layerId),
                 stats: {
-                    totalRules: layerData.detections.length,
-                    activatedComponents: 0
+                    totalRules: validDetections.length,
+                    activatedComponents: 0,
+                    missingIds: {
+                        techniques: new Set(),
+                        strategies: new Set(),
+                        analytics: new Set(),
+                        dataComponents: new Set()
+                    }
                 }
             };
             
@@ -760,11 +2029,29 @@
             // Save to localStorage
             saveLayersToStorage();
             
+            // Auto-switch to Detection Layers tab to show the imported layer
+            switchTab('layers');
+            
+            // Show warnings if any
+            if (warnings.length > 0) {
+                NotificationSystem.warning(
+                    'Layer Imported with Warnings',
+                    warnings.join('\n'),
+                    { layerName: layer.name, warnings: warnings }
+                );
+            } else {
+                NotificationSystem.success('Layer Imported', `"${layer.name}" loaded successfully with ${validDetections.length} detection(s)`);
+            }
+            
             return layer;
             
         } catch (error) {
             console.error("Error importing layer:", error);
-            alert("Failed to import layer: " + error.message);
+            NotificationSystem.error(
+                'Import Failed',
+                error.message,
+                { filename: filename, error: error.stack }
+            );
             return null;
         }
     }
@@ -790,8 +2077,16 @@
         enabledLayers.forEach(layer => {
             let activatedCount = 0;
             
+            // Reset missing IDs tracking
+            layer.stats.missingIds = {
+                techniques: new Set(),
+                strategies: new Set(),
+                analytics: new Set(),
+                dataComponents: new Set()
+            };
+            
             layer.detections.forEach(detection => {
-                if (detection.enabled === false) return; // Skip disabled detections
+                if (detection.enabled === false) return;
                 
                 console.log(`Processing detection: ${detection.ruleName}`);
                 
@@ -805,7 +2100,32 @@
                 console.log(`  Analytics: ${analytics.join(', ') || 'none'}`);
                 console.log(`  Data Components: ${dataComponents.join(', ') || 'none'}`);
                 
-                // CONTEXTUAL ACTIVATION: Only activate components within the specified hierarchy
+                // Track which IDs weren't found
+                techniques.forEach(id => {
+                    if (!findNodeById(fullDataset, id, 'Technique')) {
+                        layer.stats.missingIds.techniques.add(id);
+                    }
+                });
+                
+                strategies.forEach(id => {
+                    if (!findNodeById(fullDataset, id, 'Detection Strategy')) {
+                        layer.stats.missingIds.strategies.add(id);
+                    }
+                });
+                
+                analytics.forEach(id => {
+                    if (!findNodeById(fullDataset, id, 'Analytic')) {
+                        layer.stats.missingIds.analytics.add(id);
+                    }
+                });
+                
+                dataComponents.forEach(id => {
+                    if (!findNodeById(fullDataset, id, 'Data Component')) {
+                        layer.stats.missingIds.dataComponents.add(id);
+                    }
+                });
+                
+                // CONTEXTUAL ACTIVATION
                 const count = activateContextual(fullDataset, {
                     techniques: techniques,
                     strategies: strategies,
@@ -826,11 +2146,69 @@
             
             layer.stats.activatedComponents = activatedCount;
             console.log(`Layer "${layer.name}" activated ${activatedCount} components total`);
+            
+            // Show warning if nothing activated
+            if (activatedCount === 0 && layer.detections.length > 0) {
+                showLayerWarning(layer);
+            }
         });
         
-        // Recalculate coverage with union logic (any layer activates = active)
+        // Recalculate coverage with union logic
         calculateCoverage(fullDataset);
-        renderLayersList(); // Update stats display
+        renderLayersList();
+    }
+    
+    function findNodeById(node, targetId, targetType = null) {
+        if (node.id === targetId && (!targetType || node.type === targetType)) {
+            return node;
+        }
+        
+        if (node.children && node.children.length > 0) {
+            for (const child of node.children) {
+                const found = findNodeById(child, targetId, targetType);
+                if (found) return found;
+            }
+        }
+        
+        return null;
+    }
+    
+    function showLayerWarning(layer) {
+        const messages = [];
+        const missingIds = layer.stats.missingIds;
+        
+        if (missingIds.techniques.size > 0) {
+            messages.push(`${missingIds.techniques.size} Technique(s) not found: ${Array.from(missingIds.techniques).slice(0, 3).join(', ')}${missingIds.techniques.size > 3 ? '...' : ''}`);
+        }
+        if (missingIds.strategies.size > 0) {
+            messages.push(`${missingIds.strategies.size} Detection Strategy(ies) not found`);
+        }
+        if (missingIds.analytics.size > 0) {
+            messages.push(`${missingIds.analytics.size} Analytic(s) not found (IDs may not exist in v18 yet)`);
+        }
+        if (missingIds.dataComponents.size > 0) {
+            messages.push(`${missingIds.dataComponents.size} Data Component(s) not found: ${Array.from(missingIds.dataComponents).slice(0, 3).join(', ')}${missingIds.dataComponents.size > 3 ? '...' : ''}`);
+        }
+        
+        if (messages.length > 0) {
+            console.warn(`⚠️ Layer "${layer.name}" activated 0 components!`);
+            console.warn('Missing IDs:', {
+                techniques: Array.from(missingIds.techniques),
+                strategies: Array.from(missingIds.strategies),
+                analytics: Array.from(missingIds.analytics),
+                dataComponents: Array.from(missingIds.dataComponents)
+            });
+            
+            NotificationSystem.warning(
+                `Layer "${layer.name}" - Zero Activations`,
+                messages.join('\n') + '\n\nCheck console for full details or use test_layer_simple.json',
+                {
+                    missingTechniques: Array.from(missingIds.techniques),
+                    missingAnalytics: Array.from(missingIds.analytics),
+                    missingDataComponents: Array.from(missingIds.dataComponents)
+                }
+            );
+        }
     }
     
     function activateContextual(node, context, currentPath = {}) {
@@ -840,6 +2218,20 @@
         if (node.type === 'Technique' && context.techniques.includes(node.id)) {
             currentPath.inTechnique = true;
             currentPath.techniqueId = node.id;
+        }
+        
+        // Sub-techniques can be targeted directly OR via parent technique
+        if (node.type === 'Sub-Technique') {
+            // Check if this specific sub-technique is targeted
+            const isDirectlyTargeted = context.techniques.includes(node.id);
+            // Check if parent technique is targeted (which should cover all sub-techniques)
+            const isParentTargeted = node.parentTechniqueId && context.techniques.includes(node.parentTechniqueId);
+            
+            if (isDirectlyTargeted || isParentTargeted) {
+                currentPath.inTechnique = true;
+                currentPath.techniqueId = node.id;
+                currentPath.isSubTechnique = true;
+            }
         }
         
         if (node.type === 'Detection Strategy' && context.strategies.includes(node.id)) {
@@ -854,24 +2246,39 @@
         
         // Activate if conditions are met
         if (node.type === 'Data Component' && context.dataComponents.includes(node.id)) {
-            // Check if we're in the right context
             const techniqueMatch = context.techniques.length === 0 || currentPath.inTechnique;
             const strategyMatch = context.strategies.length === 0 || currentPath.inStrategy;
             const analyticMatch = context.analytics.length === 0 || currentPath.inAnalytic;
             
-            if (techniqueMatch && strategyMatch && analyticMatch) {
+            // SPECIAL CASE: If strategies and analytics arrays are BOTH empty but techniques and dataComponents are specified,
+            // activate ANY matching Data Component under the specified technique (direct activation mode)
+            const directActivationMode = context.strategies.length === 0 && context.analytics.length === 0 && 
+                                        context.techniques.length > 0 && context.dataComponents.length > 0;
+            
+            if (directActivationMode && techniqueMatch) {
+                // Direct activation: just check technique match
                 if (!node.layerSources) node.layerSources = [];
                 if (!node.layerSources.includes(context.layerId)) {
                     node.layerSources.push(context.layerId);
                 }
                 node.active = true;
                 count++;
-                console.log(`    → Activated DC: ${node.id} (${node.name}) under Technique=${currentPath.techniqueId}, Strategy=${currentPath.strategyId}, Analytic=${currentPath.analyticId}`);
+                const techInfo = currentPath.isSubTechnique ? `Sub-Technique=${currentPath.techniqueId}` : `Technique=${currentPath.techniqueId}`;
+                console.log(`    → Activated DC (direct): ${node.id} (${node.name}) under ${techInfo}`);
+            } else if (techniqueMatch && strategyMatch && analyticMatch) {
+                // Standard contextual activation
+                if (!node.layerSources) node.layerSources = [];
+                if (!node.layerSources.includes(context.layerId)) {
+                    node.layerSources.push(context.layerId);
+                }
+                node.active = true;
+                count++;
+                const techInfo = currentPath.isSubTechnique ? `Sub-Technique=${currentPath.techniqueId}` : `Technique=${currentPath.techniqueId}`;
+                console.log(`    → Activated DC: ${node.id} (${node.name}) under ${techInfo}, Strategy=${currentPath.strategyId}, Analytic=${currentPath.analyticId}`);
             }
         }
         
         if (node.type === 'Analytic' && context.analytics.includes(node.id)) {
-            // Also activate the Analytic node itself
             if (!node.layerSources) node.layerSources = [];
             if (!node.layerSources.includes(context.layerId)) {
                 node.layerSources.push(context.layerId);
@@ -925,6 +2332,7 @@
                 applyLayersToCoverage();
                 updateVisualization();
                 saveLayersToStorage();
+                NotificationSystem.info('Layer Deleted', `"${layer.name}" has been removed`);
             }
         }
     }
@@ -947,13 +2355,15 @@
             a.download = `${layer.name.replace(/[^a-z0-9]/gi, '_')}_layer.json`;
             a.click();
             URL.revokeObjectURL(url);
+            
+            NotificationSystem.success('Export Complete', `"${layer.name}" exported successfully`);
         }
     }
     
     function exportActiveLayers() {
         const enabled = detectionLayers.filter(l => l.enabled);
         if (enabled.length === 0) {
-            alert("No active layers to export");
+            NotificationSystem.warning('No Active Layers', 'Enable at least one layer to export');
             return;
         }
         
@@ -974,50 +2384,70 @@
         a.download = 'active_detection_layers.json';
         a.click();
         URL.revokeObjectURL(url);
+        
+        NotificationSystem.success('Export Complete', `${enabled.length} active layer(s) exported`);
     }
     
     function clearAllLayers() {
         if (detectionLayers.length === 0) return;
         
-        if (confirm(`Clear all ${detectionLayers.length} layer(s)?`)) {
+        if (confirm(`Clear all ${detectionLayers.length} layer(s)? This cannot be undone.`)) {
             detectionLayers = [];
             layerIdCounter = 0;
             renderLayersList();
             applyLayersToCoverage();
             updateVisualization();
             saveLayersToStorage();
+            NotificationSystem.info('Layers Cleared', 'All detection layers have been removed');
         }
     }
     
     function renderLayersList() {
         const container = document.getElementById('layers-list');
         
+        // Update badge count
+        const badge = document.getElementById('layers-badge');
+        if (badge) {
+            badge.textContent = detectionLayers.length;
+        }
+        
+        // Update compare button state
+        updateCompareButtonState();
+        
         if (detectionLayers.length === 0) {
             container.innerHTML = '<div class="help-text" style="text-align: center; padding: 20px;">No layers imported yet</div>';
             return;
         }
         
-        container.innerHTML = detectionLayers.map(layer => `
-            <div class="layer-item ${layer.enabled ? 'active' : ''}">
-                <input type="checkbox" 
-                       class="layer-checkbox" 
-                       ${layer.enabled ? 'checked' : ''} 
-                       onchange="toggleLayer(${layer.id})">
-                <div class="layer-info">
-                    <div class="layer-name">
-                        <span class="layer-color" style="background: ${layer.color};"></span>
-                        ${escapeHtml(layer.name)}
+        container.innerHTML = detectionLayers.map(layer => {
+            const hasWarnings = layer.stats.activatedComponents === 0 && layer.detections.length > 0;
+            const warningClass = hasWarnings ? 'warning' : '';
+            const warningHtml = hasWarnings ? 
+                `<div class="layer-warning">⚠ No components activated - check IDs</div>` : '';
+            
+            return `
+                <div class="layer-item ${layer.enabled ? 'active' : ''} ${warningClass}">
+                    <input type="checkbox" 
+                           class="layer-checkbox" 
+                           ${layer.enabled ? 'checked' : ''} 
+                           onchange="toggleLayer(${layer.id})">
+                    <div class="layer-info">
+                        <div class="layer-name">
+                            <span class="layer-color" style="background: ${sanitizeColor(layer.color)};"></span>
+                            ${escapeHtml(layer.name)}
+                        </div>
+                        <div class="layer-stats">
+                            ${layer.detections.length} rules · ${layer.stats.activatedComponents} components
+                        </div>
+                        ${warningHtml}
                     </div>
-                    <div class="layer-stats">
-                        ${layer.detections.length} rules · ${layer.stats.activatedComponents} components
+                    <div class="layer-actions">
+                        <button class="small secondary" onclick="exportLayer(${layer.id})" title="Export">↓</button>
+                        <button class="small danger" onclick="deleteLayer(${layer.id})" title="Delete">×</button>
                     </div>
                 </div>
-                <div class="layer-actions">
-                    <button class="small secondary" onclick="exportLayer(${layer.id})" title="Export">↓</button>
-                    <button class="small danger" onclick="deleteLayer(${layer.id})" title="Delete">×</button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
     
     function getLayerColor(layerId) {
@@ -1028,24 +2458,48 @@
         return colors[(layerId - 1) % colors.length];
     }
     
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    
-    // Storage Functions
+    // ============================================================================
+    // STORAGE FUNCTIONS
+    // ============================================================================
     
     function saveLayersToStorage() {
+        const now = Date.now();
+        if (now - lastSaveTime < SAVE_COOLDOWN) {
+            console.warn('Save rate limited');
+            return;
+        }
+        lastSaveTime = now;
+        
         try {
-            const data = {
-                layers: detectionLayers,
+            // Convert Sets to Arrays for JSON serialization
+            const layersForStorage = detectionLayers.map(layer => ({
+                ...layer,
+                stats: {
+                    ...layer.stats,
+                    missingIds: {
+                        techniques: Array.from(layer.stats.missingIds.techniques || []),
+                        strategies: Array.from(layer.stats.missingIds.strategies || []),
+                        analytics: Array.from(layer.stats.missingIds.analytics || []),
+                        dataComponents: Array.from(layer.stats.missingIds.dataComponents || [])
+                    }
+                }
+            }));
+            
+            const data = JSON.stringify({
+                layers: layersForStorage,
                 counter: layerIdCounter
-            };
-            localStorage.setItem('mitre_v18_detection_layers', JSON.stringify(data));
+            });
+            
+            // Check size (localStorage limit is usually 5-10MB)
+            if (data.length > 5 * 1024 * 1024) {
+                throw new Error('Data too large for localStorage (>5MB)');
+            }
+            
+            localStorage.setItem('mitre_v18_detection_layers', data);
             console.log("Layers saved to localStorage");
         } catch (error) {
             console.error("Failed to save layers:", error);
+            NotificationSystem.error('Save Failed', 'Could not save layers to browser storage: ' + error.message);
         }
     }
     
@@ -1054,26 +2508,61 @@
             const saved = localStorage.getItem('mitre_v18_detection_layers');
             if (saved) {
                 const data = JSON.parse(saved);
-                detectionLayers = data.layers || [];
-                layerIdCounter = data.counter || 0;
+                
+                // Validate structure
+                if (Array.isArray(data.layers)) {
+                    // Validate each layer and convert missing IDs arrays back to Sets
+                    detectionLayers = data.layers
+                        .filter(validateLayerStructure)
+                        .map(layer => ({
+                            ...layer,
+                            stats: {
+                                ...layer.stats,
+                                missingIds: {
+                                    techniques: new Set(layer.stats.missingIds?.techniques || []),
+                                    strategies: new Set(layer.stats.missingIds?.strategies || []),
+                                    analytics: new Set(layer.stats.missingIds?.analytics || []),
+                                    dataComponents: new Set(layer.stats.missingIds?.dataComponents || [])
+                                }
+                            }
+                        }));
+                }
+                
+                if (typeof data.counter === 'number' && data.counter > 0 && data.counter < 1000000) {
+                    layerIdCounter = data.counter;
+                }
+                
                 console.log(`Loaded ${detectionLayers.length} saved layer(s)`);
                 renderLayersList();
             }
         } catch (error) {
             console.error("Failed to load saved layers:", error);
+            // Clear corrupted data
+            localStorage.removeItem('mitre_v18_detection_layers');
+            NotificationSystem.warning('Load Failed', 'Saved layers were corrupted and have been cleared');
         }
     }
     
-    // File Upload Handlers
+    // ============================================================================
+    // FILE UPLOAD HANDLERS
+    // ============================================================================
     
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('file-input');
     
-    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', () => {
+        if (initializationComplete) {
+            fileInput.click();
+        } else {
+            NotificationSystem.warning('Please Wait', 'Please wait for initialization to complete');
+        }
+    });
     
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        dropZone.classList.add('drag-over');
+        if (initializationComplete) {
+            dropZone.classList.add('drag-over');
+        }
     });
     
     dropZone.addEventListener('dragleave', () => {
@@ -1083,17 +2572,44 @@
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.classList.remove('drag-over');
-        handleFiles(e.dataTransfer.files);
+        if (initializationComplete) {
+            handleFiles(e.dataTransfer.files);
+        } else {
+            NotificationSystem.warning('Please Wait', 'Please wait for initialization to complete');
+        }
     });
     
     fileInput.addEventListener('change', (e) => {
-        handleFiles(e.target.files);
-        fileInput.value = ''; // Reset for re-upload
+        if (initializationComplete) {
+            handleFiles(e.target.files);
+            fileInput.value = ''; // Reset for re-upload
+        }
     });
     
     function handleFiles(files) {
+        if (files.length === 0) return;
+        
+        // Show loading indicator
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'layer-import-loading';
+        loadingDiv.innerHTML = '<div class="spinner"></div><div>Importing layers...</div>';
+        document.body.appendChild(loadingDiv);
+        
+        let processedCount = 0;
+        const totalFiles = files.length;
+        
         Array.from(files).forEach(file => {
             if (file.type === 'application/json' || file.name.endsWith('.json')) {
+                // Check file size (max 10MB per file)
+                if (file.size > 10 * 1024 * 1024) {
+                    NotificationSystem.error('File Too Large', `${file.name} exceeds 10MB limit`);
+                    processedCount++;
+                    if (processedCount === totalFiles) {
+                        document.body.removeChild(loadingDiv);
+                    }
+                    return;
+                }
+                
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     try {
@@ -1110,17 +2626,41 @@
                             importDetectionLayer(data, file.name);
                         }
                     } catch (error) {
-                        alert(`Error parsing ${file.name}: ${error.message}`);
+                        NotificationSystem.error(
+                            'Parse Error',
+                            `Failed to parse ${file.name}: ${error.message}`,
+                            { filename: file.name, error: error.message }
+                        );
+                    } finally {
+                        processedCount++;
+                        if (processedCount === totalFiles) {
+                            document.body.removeChild(loadingDiv);
+                        }
                     }
                 };
+                
+                reader.onerror = () => {
+                    NotificationSystem.error('Read Error', `Failed to read file: ${file.name}`);
+                    processedCount++;
+                    if (processedCount === totalFiles) {
+                        document.body.removeChild(loadingDiv);
+                    }
+                };
+                
                 reader.readAsText(file);
             } else {
-                alert(`Skipping ${file.name}: not a JSON file`);
+                NotificationSystem.warning('Invalid File', `Skipping ${file.name}: not a JSON file`);
+                processedCount++;
+                if (processedCount === totalFiles) {
+                    document.body.removeChild(loadingDiv);
+                }
             }
         });
     }
     
-    // Visualization Functions
+    // ============================================================================
+    // VISUALIZATION FUNCTIONS
+    // ============================================================================
     
     function calculateCoverage(node) {
         if (!node.children || node.children.length === 0) {
@@ -1166,6 +2706,7 @@
 
         console.log(`Drawing chart: width=${width}, height=${height}, radius=${radius}`);
 
+        // Remove old chart completely
         d3.select("#chart").selectAll("*").remove();
 
         svg = d3.select("#chart")
@@ -1209,11 +2750,17 @@
 
         console.log(`Rendered ${path.size()} paths`);
 
+        // Define event handlers
+        eventHandlers.click = clicked;
+        eventHandlers.contextmenu = rightClicked;
+        eventHandlers.mouseover = mouseover;
+        eventHandlers.mouseout = mouseout;
+
         path
-            .on("click", clicked)
-            .on("contextmenu", rightClicked)
-            .on("mouseover", mouseover)
-            .on("mouseout", mouseout);
+            .on("click", eventHandlers.click)
+            .on("contextmenu", eventHandlers.contextmenu)
+            .on("mouseover", eventHandlers.mouseover)
+            .on("mouseout", eventHandlers.mouseout);
 
         g.append("circle")
             .attr("r", radius / 4)
@@ -1272,7 +2819,10 @@
         // Only allow manual toggle when no layers are active
         const hasActiveLayers = detectionLayers.some(l => l.enabled);
         if (hasActiveLayers) {
-            alert("Manual toggle disabled when detection layers are active. Disable all layers to use manual mode.");
+            NotificationSystem.warning(
+                'Manual Toggle Disabled',
+                'Manual toggle is disabled when detection layers are active. Disable all layers to use manual mode.'
+            );
             return;
         }
         
@@ -1294,20 +2844,32 @@
 
     function mouseover(event, d) {
         const tooltip = d3.select("#tooltip");
-        const platforms = d.data.platforms?.length ? `<div style="font-size:0.7rem; margin-top:3px; color:#888;">${d.data.platforms.join(', ')}</div>` : '';
-        const attackId = d.data.id ? `<div style="font-weight:bold; color:#00bcd4; font-size:0.85rem; margin-bottom:3px;">${d.data.id}</div>` : '';
+        
+        // Build platform info (escaped)
+        const platforms = d.data.platforms?.length ? 
+            `<div style="font-size:0.7rem; margin-top:3px; color:#888;">${escapeHtml(d.data.platforms.join(', '))}</div>` : '';
+        
+        // Build attack ID badge (escaped)
+        const attackId = d.data.id ? 
+            `<div style="font-weight:bold; color:#00bcd4; font-size:0.85rem; margin-bottom:3px;">${escapeHtml(d.data.id)}</div>` : '';
+        
+        // Show parent technique for sub-techniques
+        const parentInfo = d.data.type === 'Sub-Technique' && d.data.parentTechniqueId ?
+            `<div style="font-size:0.7rem; margin-top:3px; color:#888;">Parent: ${escapeHtml(d.data.parentTechniqueId)}</div>` : '';
+        
+        // Build log source info (escaped)
         const logSource = (d.data.logSourceName || d.data.logSourceChannel) ? 
             `<div style="font-size:0.7rem; margin-top:4px; color:#888; border-top:1px solid #333; padding-top:4px;">
-                ${d.data.logSourceName ? `Log: ${d.data.logSourceName}` : ''}
-                ${d.data.logSourceChannel ? `<br/>Channel: ${d.data.logSourceChannel}` : ''}
+                ${d.data.logSourceName ? 'Log: ' + escapeHtml(d.data.logSourceName) : ''}
+                ${d.data.logSourceChannel ? '<br/>Channel: ' + escapeHtml(d.data.logSourceChannel) : ''}
             </div>` : '';
         
-        // Show layer sources if any
+        // Show layer sources if any (escaped)
         let layerInfo = '';
         if (d.data.layerSources && d.data.layerSources.length > 0) {
             const layers = d.data.layerSources.map(id => {
                 const layer = detectionLayers.find(l => l.id === id);
-                return layer ? layer.name : `Layer ${id}`;
+                return layer ? escapeHtml(layer.name) : `Layer ${id}`;
             });
             layerInfo = `<div style="font-size:0.7rem; margin-top:4px; color:#0f0; border-top:1px solid #333; padding-top:4px;">
                 Active in: ${layers.join(', ')}
@@ -1317,8 +2879,9 @@
         tooltip.style("opacity", 1)
                .html(`
                    ${attackId}
-                   <div style="font-size:0.75rem; text-transform:uppercase; color:#888; margin-bottom:4px;">${d.data.type}</div>
-                   <div style="margin:5px 0; font-weight:500;">${d.data.name}</div>
+                   <div style="font-size:0.75rem; text-transform:uppercase; color:#888; margin-bottom:4px;">${escapeHtml(d.data.type)}</div>
+                   <div style="margin:5px 0; font-weight:500;">${escapeHtml(d.data.name)}</div>
+                   ${parentInfo}
                    ${platforms}
                    ${logSource}
                    ${layerInfo}
@@ -1355,7 +2918,8 @@
         
         const logSourceDiv = document.getElementById("detail-log-source");
         if (d.data.logSourceName || d.data.logSourceChannel) {
-            logSourceDiv.innerHTML = `Log Source: ${d.data.logSourceName || 'N/A'}<br/>Channel: ${d.data.logSourceChannel || 'N/A'}`;
+            // Use innerText for safety
+            logSourceDiv.innerText = `Log Source: ${d.data.logSourceName || 'N/A'}\nChannel: ${d.data.logSourceChannel || 'N/A'}`;
             logSourceDiv.style.display = 'block';
         } else {
             logSourceDiv.style.display = 'none';
@@ -1389,12 +2953,18 @@
         }
     }
 
+    // Debounced resize handler to prevent memory leaks
+    let resizeTimeout;
     window.addEventListener('resize', () => {
-        if (fullDataset) {
-            drawChart(fullDataset);
-        }
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            if (fullDataset && initializationComplete) {
+                drawChart(fullDataset);
+            }
+        }, 250);
     });
 
+    // Initialize on page load
     init();
 </script>
 </body>
