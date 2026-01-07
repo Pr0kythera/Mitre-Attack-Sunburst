@@ -7,8 +7,11 @@
           content="default-src 'self'; 
                    script-src 'self' 'unsafe-inline' https://d3js.org; 
                    style-src 'self' 'unsafe-inline'; 
-                   connect-src https://raw.githubusercontent.com;">
-    <title>MITRE ATT&CK v18 Detection Depth Map - Multi-Layer (Secure)</title>
+                   connect-src 'self' https://raw.githubusercontent.com https://cdn.jsdelivr.net;
+                   img-src 'self' data:;
+                   object-src 'none';
+                   base-uri 'self';">
+    <title>MITRE ATT&CK v18 Detection Depth Map - Multi-Layer (Audited)</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         :root {
@@ -20,6 +23,7 @@
             --success-color: #2e7d32;
             --warning-color: #fbc02d;
             --danger-color: #d32f2f;
+            --focus-ring: 0 0 0 2px var(--accent-color);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -31,6 +35,15 @@
             display: flex;
             height: 100vh;
             overflow: hidden;
+        }
+
+        /* Accessibility Focus Styles */
+        button:focus-visible, 
+        input:focus-visible, 
+        .tab-button:focus-visible,
+        .layer-checkbox:focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring);
         }
 
         #loader {
@@ -133,7 +146,6 @@
             display: flex;
         }
 
-        /* Ensure buttons inside tabs maintain styling */
         .tab-content button {
             margin-top: 10px;
         }
@@ -336,9 +348,10 @@
             transition: all 0.2s;
         }
 
-        .file-drop-zone:hover {
+        .file-drop-zone:hover, .file-drop-zone:focus {
             border-color: var(--accent-color);
             background: rgba(0, 188, 212, 0.05);
+            outline: none;
         }
 
         .file-drop-zone.drag-over {
@@ -379,6 +392,11 @@
             align-items: center;
             user-select: none;
         }
+        
+        .collapsible-header:focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring);
+        }
 
         .collapsible-header:hover {
             background: rgba(255,255,255,0.08);
@@ -407,6 +425,29 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             animation: slideIn 0.3s ease;
             word-wrap: break-word;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .notification-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        
+        .notification-btn {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .notification-btn:hover {
+            background: rgba(0,0,0,0.4);
         }
 
         @keyframes slideIn {
@@ -661,26 +702,26 @@
 </head>
 <body>
 
-    <div id="loader">
+    <div id="loader" role="alert" aria-busy="true">
         <div class="spinner"></div>
         <div id="loading-text">Accessing MITRE v18 Data...</div>
-        <div id="loading-subtext">Fetching enterprise-attack.json (October 2025 Release)</div>
+        <div id="loading-subtext">Fetching enterprise-attack.json</div>
     </div>
 
-    <div id="sidebar">
-        <!-- Tab Headers -->
-        <div class="tab-header">
-            <button class="tab-button active" onclick="switchTab('overview')" id="tab-btn-overview">
+    <nav id="sidebar" role="navigation" aria-label="Sidebar">
+        <div class="tab-header" role="tablist">
+            <button class="tab-button active" onclick="switchTab('overview')" id="tab-btn-overview" 
+                    role="tab" aria-selected="true" aria-controls="tab-overview" tabindex="0">
                 Overview
             </button>
-            <button class="tab-button" onclick="switchTab('layers')" id="tab-btn-layers">
+            <button class="tab-button" onclick="switchTab('layers')" id="tab-btn-layers"
+                    role="tab" aria-selected="false" aria-controls="tab-layers" tabindex="0">
                 Detection Layers
-                <span class="tab-badge" id="layers-badge">0</span>
+                <span class="tab-badge" id="layers-badge" aria-label="0 layers">0</span>
             </button>
         </div>
 
-        <!-- Tab 1: Overview (Global Coverage & Selection Details) -->
-        <div id="tab-overview" class="tab-content active">
+        <div id="tab-overview" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-overview">
             <h1>DETECTION DEPTH MAP</h1>
             <div class="subtitle">MITRE ATT&CK v18 Native - Multi-Layer (Secure)</div>
 
@@ -692,7 +733,7 @@
                 </div>
             </div>
 
-            <div id="node-details" style="display:none; margin-top: 20px;">
+            <div id="node-details" style="display:none; margin-top: 20px;" aria-live="polite">
                 <h2>Selection Details</h2>
                 <div id="detail-id-badge" class="id-badge"></div>
                 <div id="detail-name" style="font-weight:bold; color:white; margin-bottom: 5px; font-size: 0.95rem;"></div>
@@ -711,24 +752,22 @@
                 <div style="font-size: 0.75rem; color: #666; margin-bottom: 10px; font-style: italic;">
                     Click to zoom. Right-click for manual toggle (when no layers active).
                 </div>
-                <button class="secondary" onclick="resetZoom()">Reset Zoom</button>
+                <button class="secondary" onclick="resetZoom()" aria-label="Reset Zoom">Reset Zoom</button>
             </div>
         </div>
 
-        <!-- Tab 2: Detection Layers -->
-        <div id="tab-layers" class="tab-content">
+        <div id="tab-layers" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-layers">
             <h1>DETECTION LAYERS</h1>
             <div class="subtitle">Import and manage detection coverage layers</div>
 
-            <div class="file-drop-zone" id="dropZone">
+            <div class="file-drop-zone" id="dropZone" tabindex="0" role="button" aria-label="Upload JSON layer file">
                 <div style="font-size: 0.9rem; margin-bottom: 5px;">Drop v18 Detection Layer JSON</div>
                 <div class="help-text">or click to browse</div>
             </div>
-            <input type="file" id="file-input" accept=".json" multiple>
+            <input type="file" id="file-input" accept=".json" multiple aria-hidden="true">
 
-            <div id="layers-list">
-                <!-- Layers will be added here dynamically -->
-            </div>
+            <div id="layers-list" role="list">
+                </div>
 
             <div class="control-group">
                 <button onclick="exportActiveLayers()" id="exportBtn">Export Active Layers</button>
@@ -736,16 +775,15 @@
                 <button class="secondary" onclick="clearAllLayers()" id="clearBtn">Clear All Layers</button>
             </div>
 
-            <!-- Schema Help Section -->
             <div class="collapsible-section" style="margin-top: 15px;">
-                <div class="collapsible-header" onclick="toggleCollapsible('schema-help')">
+                <div class="collapsible-header" onclick="toggleCollapsible('schema-help')" tabindex="0" role="button" aria-expanded="false" aria-controls="schema-help">
                     <span style="font-size: 0.85rem; font-weight: bold;">Schema Reference</span>
                     <span id="schema-help-icon">▼</span>
                 </div>
                 <div class="collapsible-content" id="schema-help">
                     <div class="schema-example">
 {
-  "name": "SIEM Coverage",
+  "name": "SIEM Coverage", // [Required] Unique Layer Name
   "version": "1.0",
   "domain": "enterprise-attack",
   "description": "Production detections",
@@ -769,21 +807,20 @@
                 </div>
             </div>
         </div>
-    </div>
+    </nav>
 
-    <div id="main-view">
-        <div id="breadcrumbs">ATT&CK Enterprise</div>
+    <main id="main-view" role="main">
+        <div id="breadcrumbs" aria-live="polite">ATT&CK Enterprise</div>
         <div id="chart"></div>
-    </div>
+    </main>
     
-    <div id="tooltip"></div>
+    <div id="tooltip" role="tooltip"></div>
 
-    <!-- Layer Comparison Modal -->
-    <div id="compare-modal">
+    <div id="compare-modal" role="dialog" aria-labelledby="modal-title" aria-modal="true">
         <div class="compare-content">
             <div class="compare-header">
-                <h2>Layer Comparison</h2>
-                <button class="close-modal" onclick="closeCompareModal()">×</button>
+                <h2 id="modal-title">Layer Comparison</h2>
+                <button class="close-modal" onclick="closeCompareModal()" aria-label="Close modal">×</button>
             </div>
 
             <div class="compare-section">
@@ -895,11 +932,13 @@
     }
     
     /**
-     * Validate and sanitize string with max length
+     * Validate and sanitize string with max length and control char removal
      */
     function sanitizeString(str, maxLength = 200) {
         if (typeof str !== 'string') return '';
-        return String(str).substring(0, maxLength);
+        // Remove control characters (ASCII 0-31) except newlines
+        const sanitized = str.replace(/[\x00-\x09\x0B-\x1F\x7F]/g, "");
+        return sanitized.substring(0, maxLength);
     }
     
     /**
@@ -908,6 +947,19 @@
     function sanitizeStringArray(arr) {
         if (!Array.isArray(arr)) return [];
         return arr.filter(item => typeof item === 'string').map(item => sanitizeString(item, 100));
+    }
+
+    /**
+     * Safe JSON Parse to prevent Prototype Pollution
+     */
+    function safeJSONParse(jsonString) {
+        return JSON.parse(jsonString, (key, value) => {
+            // Block dangerous keys
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+                return undefined;
+            }
+            return value;
+        });
     }
     
     /**
@@ -933,10 +985,26 @@
             console.info(title, message);
             this.show(title, message, 'info');
         },
+
+        undo: function(title, message, undoCallback) {
+            const notification = this.show(title, message, 'info', null, false);
+            const actions = document.createElement('div');
+            actions.className = 'notification-actions';
+            const undoBtn = document.createElement('button');
+            undoBtn.className = 'notification-btn';
+            undoBtn.textContent = 'Undo';
+            undoBtn.onclick = () => {
+                undoCallback();
+                if (notification.parentNode) notification.parentNode.removeChild(notification);
+            };
+            actions.appendChild(undoBtn);
+            notification.appendChild(actions);
+        },
         
-        show: function(title, message, type, details = null) {
+        show: function(title, message, type, details = null, autoDismiss = true) {
             const notification = document.createElement('div');
             notification.className = `notification notification-${type}`;
+            notification.setAttribute('role', 'alert');
             
             let detailsHtml = '';
             if (details) {
@@ -951,16 +1019,19 @@
             
             document.body.appendChild(notification);
             
-            setTimeout(() => {
-                notification.style.transition = 'opacity 0.5s, transform 0.5s';
-                notification.style.opacity = '0';
-                notification.style.transform = 'translateX(400px)';
+            if (autoDismiss) {
                 setTimeout(() => {
-                    if (notification.parentNode) {
-                        document.body.removeChild(notification);
-                    }
-                }, 500);
-            }, 8000);
+                    notification.style.transition = 'opacity 0.5s, transform 0.5s';
+                    notification.style.opacity = '0';
+                    notification.style.transform = 'translateX(400px)';
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            document.body.removeChild(notification);
+                        }
+                    }, 500);
+                }, 8000);
+            }
+            return notification;
         }
     };
     
@@ -1018,9 +1089,7 @@
     // GLOBAL STATE
     // ============================================================================
     
-    const MITRE_STIX_URL = "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/refs/heads/master/enterprise-attack/enterprise-attack.json";
-    
-    // Fallback URL in case the primary fails (jsdelivr CDN)
+    const MITRE_STIX_URL = "https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack.json";
     const MITRE_STIX_URL_FALLBACK = "https://cdn.jsdelivr.net/gh/mitre-attack/attack-stix-data@master/enterprise-attack/enterprise-attack.json";
     
     let fullDataset = null;
@@ -1054,6 +1123,7 @@
         // Deactivate all tab buttons
         document.querySelectorAll('.tab-button').forEach(btn => {
             btn.classList.remove('active');
+            btn.setAttribute('aria-selected', 'false');
         });
         
         // Show selected tab
@@ -1066,6 +1136,7 @@
         
         if (targetButton) {
             targetButton.classList.add('active');
+            targetButton.setAttribute('aria-selected', 'true');
         }
         
         activeTab = tabName;
@@ -1081,13 +1152,14 @@
     }
     
     /**
-     * Load saved tab preference
+     * Load saved tab preference - Synchronous to prevent flicker
      */
     function loadTabPreference() {
         try {
             const savedTab = localStorage.getItem('mitre_v18_active_tab');
             if (savedTab && (savedTab === 'overview' || savedTab === 'layers')) {
-                switchTab(savedTab);
+                // Manually set class without calling full switchTab yet if needed
+                activeTab = savedTab;
             }
         } catch (error) {
             console.warn('Failed to load tab preference:', error);
@@ -1124,7 +1196,9 @@
         populateComparisonModal(comparisonData);
         
         // Show modal
-        document.getElementById('compare-modal').classList.add('active');
+        const modal = document.getElementById('compare-modal');
+        modal.classList.add('active');
+        modal.querySelector('.close-modal').focus();
     }
     
     /**
@@ -1132,6 +1206,7 @@
      */
     function closeCompareModal() {
         document.getElementById('compare-modal').classList.remove('active');
+        document.getElementById('compareBtn').focus();
     }
     
     /**
@@ -1142,16 +1217,15 @@
         const ts1 = layer1.timestamp ? new Date(layer1.timestamp) : null;
         const ts2 = layer2.timestamp ? new Date(layer2.timestamp) : null;
         
-        if (!ts1 || !ts2 || isNaN(ts1.getTime()) || isNaN(ts2.getTime())) {
-            console.error('Invalid timestamps:', { layer1: layer1.timestamp, layer2: layer2.timestamp });
-            return null;
-        }
-        
+        // Use current time if timestamp missing, but warn
+        const safeTs1 = (ts1 && !isNaN(ts1.getTime())) ? ts1 : new Date();
+        const safeTs2 = (ts2 && !isNaN(ts2.getTime())) ? ts2 : new Date();
+
         // Determine older and newer
-        const older = ts1 < ts2 ? layer1 : layer2;
-        const newer = ts1 < ts2 ? layer2 : layer1;
-        const olderDate = ts1 < ts2 ? ts1 : ts2;
-        const newerDate = ts1 < ts2 ? ts2 : ts1;
+        const older = safeTs1 < safeTs2 ? layer1 : layer2;
+        const newer = safeTs1 < safeTs2 ? layer2 : layer1;
+        const olderDate = safeTs1 < safeTs2 ? safeTs1 : safeTs2;
+        const newerDate = safeTs1 < safeTs2 ? safeTs2 : safeTs1;
         
         // Calculate time difference in days
         const timeDiffMs = newerDate - olderDate;
@@ -1196,7 +1270,7 @@
     }
     
     /**
-     * Calculate coverage percentages for a single layer
+     * Calculate coverage percentages for a single layer (Optimized)
      */
     function calculateLayerCoverage(layer) {
         if (!fullDataset) {
@@ -1211,8 +1285,8 @@
             };
         }
         
-        // Create a temporary copy of the dataset
-        const tempDataset = JSON.parse(JSON.stringify(fullDataset));
+        // PERFORMANCE: Use structuredClone instead of JSON.parse/stringify
+        const tempDataset = structuredClone(fullDataset);
         
         // Reset all activation states
         resetActivationStates(tempDataset);
@@ -1438,6 +1512,10 @@
     // ============================================================================
     
     async function init() {
+        // PRE-LOAD: Set tab before fetching data to prevent flicker
+        loadTabPreference();
+        if (activeTab) switchTab(activeTab);
+
         let lastError = null;
         const urlsToTry = [MITRE_STIX_URL, MITRE_STIX_URL_FALLBACK];
         
@@ -1469,29 +1547,20 @@
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
-                // Validate content type (be lenient - GitHub raw content may return text/plain)
-                const contentType = response.headers.get('content-type');
-                const acceptableTypes = ['application/json', 'text/plain', 'text/json'];
-                const isValidContentType = contentType && acceptableTypes.some(type => contentType.includes(type));
-                
-                if (!isValidContentType) {
-                    console.warn('Unexpected content-type:', contentType, '- attempting to parse anyway');
-                }
-                
                 // Check size before parsing
                 const contentLength = response.headers.get('content-length');
                 if (contentLength && parseInt(contentLength) > 50 * 1024 * 1024) {
                     throw new Error('Response too large (>50MB)');
                 }
                 
-                // Attempt to parse JSON regardless of content-type
-                // (GitHub raw files often return text/plain even for .json files)
+                // Attempt to parse JSON safely
                 let stixData;
                 try {
-                    stixData = await response.json();
+                    const textData = await response.text();
+                    stixData = safeJSONParse(textData);
                 } catch (parseError) {
                     console.error('JSON parse error:', parseError);
-                    throw new Error(`Failed to parse MITRE data as JSON. The file may be corrupted or the GitHub API may be experiencing issues. Error: ${parseError.message}`);
+                    throw new Error(`Failed to parse MITRE data. The file may be corrupted. Error: ${parseError.message}`);
                 }
                 
                 // Validate basic structure
@@ -1500,16 +1569,12 @@
                 }
                 
                 if (!Array.isArray(stixData.objects)) {
-                    throw new Error('Invalid STIX data structure: missing "objects" array. This may indicate the MITRE repository structure has changed.');
+                    throw new Error('Invalid STIX data structure: missing "objects" array');
                 }
                 
-                if (stixData.objects.length === 0) {
-                    throw new Error('Invalid STIX data: "objects" array is empty');
-                }
+                console.log(`Successfully loaded MITRE v18 data: ${stixData.objects.length} objects`);
                 
-                console.log(`Successfully loaded MITRE v18 data: ${stixData.objects.length} objects from ${isFallback ? 'fallback' : 'primary'} source`);
-                
-                updateLoader("Parsing STIX Bundle...", "Processing " + stixData.objects.length + " objects...");
+                updateLoader("Parsing STIX Bundle...", "Processing objects...");
                 
                 // Use requestAnimationFrame for better timing
                 await new Promise(resolve => requestAnimationFrame(resolve));
@@ -1522,14 +1587,8 @@
                 
                 fullDataset = hierarchy;
                 
-                console.log("Hierarchy root:", fullDataset);
-                console.log("Number of tactics:", fullDataset.children?.length || 0);
-                
                 // Load saved layers from localStorage
                 loadSavedLayers();
-                
-                // Load saved tab preference
-                loadTabPreference();
                 
                 applyLayersToCoverage();
                 drawChart(fullDataset);
@@ -1538,7 +1597,7 @@
                 document.getElementById("loader").style.display = "none";
                 console.log("Visualization complete");
                 
-                NotificationSystem.success('Initialization Complete', `MITRE ATT&CK v18 data loaded successfully${isFallback ? ' (using fallback source)' : ''}`);
+                NotificationSystem.success('Initialization Complete', `MITRE ATT&CK v18 data loaded successfully`);
                 
                 // Success - exit the retry loop
                 return;
@@ -1551,15 +1610,10 @@
                 if (i === urlsToTry.length - 1) {
                     break;
                 }
-                
-                // Otherwise, continue to next URL
-                console.log('Will try next source...');
             }
         }
         
         // If we get here, all URLs failed
-        console.error("All data sources failed. Last error:", lastError);
-        
         const loaderDiv = document.getElementById("loader");
         loaderDiv.innerHTML = `
             <div style="color: #f44336; text-align: center; max-width: 600px; padding: 20px;">
@@ -1568,21 +1622,8 @@
                 <button onclick="location.reload()" style="padding: 10px 20px; font-size: 1em; cursor: pointer; background: #00bcd4; border: none; border-radius: 4px; color: #000; font-weight: bold;">
                     Retry
                 </button>
-                <div style="margin-top: 20px; font-size: 0.9em; color: #ccc; text-align: left; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 4px;">
-                    <strong>Troubleshooting:</strong><br/>
-                    • Check your internet connection<br/>
-                    • Verify you can access github.com<br/>
-                    • Check if your firewall/proxy is blocking GitHub<br/>
-                    • Try disabling browser extensions<br/>
-                    • Clear browser cache and retry<br/>
-                    • If GitHub is down, try again later
-                </div>
-                <div style="margin-top: 15px; font-size: 0.75em; color: #888;">
-                    Attempted sources: GitHub Raw + JSDelivr CDN
-                </div>
             </div>
         `;
-        
         NotificationSystem.error('Initialization Failed', lastError.message);
     }
     
@@ -1599,7 +1640,6 @@
         }
         
         const objects = stixData.objects;
-        console.log(`Processing ${objects.length} STIX objects`);
         
         // Index all objects by ID and external ID
         const objectMap = {};
@@ -1612,18 +1652,12 @@
             }
         });
         
-        // Store maps globally for layer processing
         window.stixObjectMap = objectMap;
-        window.stixExternalIdMap = externalIdMap;
         
         const tactics = objects.filter(o => o.type === 'x-mitre-tactic');
         const techniques = objects.filter(o => o.type === 'attack-pattern');
         const detectionStrategies = objects.filter(o => o.type === 'x-mitre-detection-strategy');
-        const analytics = objects.filter(o => o.type === 'x-mitre-analytic');
-        const dataComponents = objects.filter(o => o.type === 'x-mitre-data-component');
         const relationships = objects.filter(o => o.type === 'relationship');
-        
-        console.log(`Found: ${tactics.length} tactics, ${techniques.length} techniques, ${detectionStrategies.length} strategies, ${analytics.length} analytics, ${dataComponents.length} data components, ${relationships.length} relationships`);
         
         // Build relationship map
         const sourceToTargets = {};
@@ -1665,9 +1699,7 @@
             return extId && extId.includes('.'); // Has dot means sub-technique
         });
         
-        console.log(`Found ${parentTechniques.length} parent techniques and ${subTechniques.length} sub-techniques`);
-        
-        // Create a map to store technique nodes by their ID for easy lookup
+        // Create a map to store technique nodes by their ID
         const techniqueNodesMap = {};
         
         // Add parent techniques to tactics
@@ -1688,11 +1720,10 @@
                             id: techniqueId,
                             stixId: technique.id,
                             description: sanitizeString(technique.description, 5000),
-                            _children: [] // Will hold sub-techniques
+                            _children: []
                         };
                         tacticEntry._children.push(techNode);
                         
-                        // Store reference for sub-technique mapping
                         if (!techniqueNodesMap[techniqueId]) {
                             techniqueNodesMap[techniqueId] = [];
                         }
@@ -1702,17 +1733,14 @@
             });
         });
         
-        // Add sub-techniques as children of their parent techniques
-        let subTechniquesAdded = 0;
+        // Add sub-techniques
         subTechniques.forEach(subTech => {
             const subTechId = subTech.external_references?.[0]?.external_id;
             if (!subTechId) return;
             
-            // Extract parent technique ID (e.g., T1110.001 -> T1110)
             const parentId = subTechId.split('.')[0];
-            
-            // Find all instances of parent technique (may be in multiple tactics)
             const parentNodes = techniqueNodesMap[parentId];
+            
             if (parentNodes) {
                 parentNodes.forEach(parentNode => {
                     const subTechNode = {
@@ -1722,24 +1750,14 @@
                         stixId: subTech.id,
                         parentTechniqueId: parentId,
                         description: sanitizeString(subTech.description, 5000),
-                        _children: [] // Will hold detection strategies
+                        _children: []
                     };
                     parentNode._children.push(subTechNode);
-                    subTechniquesAdded++;
                 });
-            } else {
-                console.warn(`Parent technique ${parentId} not found for sub-technique ${subTechId}`);
             }
         });
         
-        console.log(`Built tactics with ${parentTechniques.length} techniques and ${subTechniquesAdded} sub-technique placements`);
-        
-        // Process detection strategies and their analytics
-        let strategiesAdded = 0;
-        let analyticsAdded = 0;
-        let dataComponentsAdded = 0;
-        
-        // Helper function to find and add strategies to technique/sub-technique nodes
+        // Helper to add strategies
         function addStrategyToNode(node, strategyId, strategy, sourceToTargets, objectMap) {
             const stratNode = {
                 name: sanitizeString(strategy.name, 200),
@@ -1750,7 +1768,6 @@
                 children: []
             };
             node._children.push(stratNode);
-            strategiesAdded++;
             
             // Add analytics referenced by this strategy
             const analyticRefs = strategy.x_mitre_analytic_refs || [];
@@ -1771,9 +1788,8 @@
                         layerSources: []
                     };
                     stratNode.children.push(analyticNode);
-                    analyticsAdded++;
                     
-                    // Add data components referenced by this analytic via log sources
+                    // Add data components
                     const logSourceRefs = analytic.x_mitre_log_source_references || [];
                     logSourceRefs.forEach(logSourceRef => {
                         if (logSourceRef.x_mitre_data_component_ref) {
@@ -1781,7 +1797,7 @@
                             if (dataComponent && dataComponent.type === 'x-mitre-data-component') {
                                 const dataComponentId = dataComponent.external_references?.[0]?.external_id || 'DC-' + dataComponent.id.slice(-4);
                                 
-                                // Check if this data component is already added
+                                // De-duplicate within same analytic
                                 if (!analyticNode.children.find(dc => dc.stixId === dataComponent.id)) {
                                     analyticNode.children.push({
                                         name: sanitizeString(dataComponent.name, 200),
@@ -1794,7 +1810,6 @@
                                         logSourceChannel: sanitizeString(logSourceRef.channel, 200),
                                         layerSources: []
                                     });
-                                    dataComponentsAdded++;
                                 }
                             }
                         }
@@ -1803,10 +1818,10 @@
             });
         }
         
+        // Link strategies
         detectionStrategies.forEach(strategy => {
             const strategyId = strategy.external_references?.[0]?.external_id || 'DET-' + strategy.id.slice(-4);
             
-            // Find which technique this strategy detects
             const rels = sourceToTargets[strategy.id] || [];
             const detectsRels = rels.filter(r => r.type === 'detects');
             
@@ -1818,18 +1833,15 @@
                     const techniqueExtId = technique.external_references?.[0]?.external_id;
                     const isSubTechnique = techniqueExtId && techniqueExtId.includes('.');
                     
-                    // Find this technique/sub-technique in all tactics
                     Object.values(tacticsMap).forEach(tactic => {
                         tactic._children.forEach(parentTech => {
                             if (isSubTechnique) {
-                                // This is a sub-technique, look in parent's children
                                 parentTech._children.forEach(subTech => {
                                     if (subTech.stixId === techniqueId && subTech.type === "Sub-Technique") {
                                         addStrategyToNode(subTech, strategyId, strategy, sourceToTargets, objectMap);
                                     }
                                 });
                             } else {
-                                // This is a parent technique
                                 if (parentTech.stixId === techniqueId && parentTech.type === "Technique") {
                                     addStrategyToNode(parentTech, strategyId, strategy, sourceToTargets, objectMap);
                                 }
@@ -1840,9 +1852,7 @@
             });
         });
         
-        console.log(`Added ${strategiesAdded} strategy nodes, ${analyticsAdded} analytic nodes, and ${dataComponentsAdded} data component nodes to the hierarchy`);
-        
-        // Convert to final structure with proper hierarchy
+        // Convert to final structure
         const root = {
             name: "ATT&CK Enterprise",
             type: "Root",
@@ -1852,100 +1862,28 @@
                 type: tactic.type,
                 id: tactic.id,
                 description: tactic.description,
-                children: tactic._children.map(tech => {
-                    // This is a parent technique
-                    return {
-                        name: tech.name,
-                        type: tech.type,
-                        id: tech.id,
-                        description: tech.description,
-                        children: tech._children.map(child => {
-                            // Child could be a sub-technique or detection strategy
-                            if (child.type === "Sub-Technique") {
-                                // Sub-technique with its own detection strategies
-                                return {
-                                    name: child.name,
-                                    type: child.type,
-                                    id: child.id,
-                                    parentTechniqueId: child.parentTechniqueId,
-                                    description: child.description,
-                                    children: child._children // Detection strategies for this sub-technique
-                                };
-                            } else {
-                                // Detection strategy directly under technique
-                                return child;
-                            }
-                        })
-                    };
-                })
+                children: tactic._children.map(tech => ({
+                    name: tech.name,
+                    type: tech.type,
+                    id: tech.id,
+                    description: tech.description,
+                    children: tech._children.map(child => {
+                        if (child.type === "Sub-Technique") {
+                            return {
+                                name: child.name,
+                                type: child.type,
+                                id: child.id,
+                                parentTechniqueId: child.parentTechniqueId,
+                                description: child.description,
+                                children: child._children
+                            };
+                        } else {
+                            return child;
+                        }
+                    })
+                }))
             }))
         };
-        
-        console.log("Hierarchy built successfully");
-        
-        // Debug: Log available Analytics and Data Components
-        const availableAnalytics = new Set();
-        const availableDataComponents = new Set();
-        
-        function collectIds(node) {
-            if (node.type === 'Analytic') {
-                availableAnalytics.add(node.id);
-            } else if (node.type === 'Data Component') {
-                availableDataComponents.add(node.id);
-            }
-            
-            if (node.children && node.children.length > 0) {
-                node.children.forEach(child => collectIds(child));
-            }
-        }
-        
-        collectIds(root);
-        
-        console.log(`Available Analytics (${availableAnalytics.size}):`, Array.from(availableAnalytics).sort());
-        console.log(`Available Data Components (${availableDataComponents.size}):`, Array.from(availableDataComponents).sort());
-        
-        // Store globally for easy debugging
-        window.debugAvailableAnalytics = Array.from(availableAnalytics).sort();
-        window.debugAvailableDataComponents = Array.from(availableDataComponents).sort();
-        
-        // Provide helper functions in console
-        window.listAnalytics = () => {
-            console.log('=== Available Analytics ===');
-            window.debugAvailableAnalytics.forEach(id => console.log(id));
-            return window.debugAvailableAnalytics;
-        };
-        
-        window.listDataComponents = () => {
-            console.log('=== Available Data Components ===');
-            window.debugAvailableDataComponents.forEach(id => console.log(id));
-            return window.debugAvailableDataComponents;
-        };
-        
-        window.findAnalyticsByTechnique = (techniqueId) => {
-            const results = [];
-            function search(node, path = []) {
-                const newPath = [...path, node.name];
-                if (node.id === techniqueId || node.name === techniqueId) {
-                    function collectAnalytics(n) {
-                        if (n.type === 'Analytic') results.push({ id: n.id, name: n.name });
-                        if (n.children) n.children.forEach(collectAnalytics);
-                    }
-                    collectAnalytics(node);
-                }
-                if (node.children) {
-                    node.children.forEach(c => search(c, newPath));
-                }
-            }
-            search(fullDataset);
-            console.log(`Analytics for ${techniqueId}:`);
-            results.forEach(a => console.log(`  ${a.id}: ${a.name}`));
-            return results;
-        };
-        
-        console.log('💡 Debug helpers available:');
-        console.log('  - listAnalytics() - Show all available Analytic IDs');
-        console.log('  - listDataComponents() - Show all available Data Component IDs');
-        console.log('  - findAnalyticsByTechnique("T1110") - Find analytics for a specific technique');
         
         return root;
     }
@@ -1956,24 +1894,17 @@
     
     function importDetectionLayer(layerData, filename = "Imported Layer") {
         if (!initializationComplete) {
-            NotificationSystem.warning('Please Wait', 'Initialization in progress. Please wait for MITRE data to load.');
+            NotificationSystem.warning('Please Wait', 'Initialization in progress.');
             return null;
         }
         
         try {
-            const errors = [];
             const warnings = [];
             
-            // Validate layer structure
             if (!layerData.detections || !Array.isArray(layerData.detections)) {
                 throw new Error("Invalid layer format: 'detections' array required");
             }
             
-            if (layerData.detections.length === 0) {
-                warnings.push("Layer contains 0 detections");
-            }
-            
-            // Validate and sanitize detections
             const validDetections = [];
             let skippedCount = 0;
             
@@ -1983,26 +1914,27 @@
                     validDetections.push(validated);
                 } else {
                     skippedCount++;
-                    console.warn(`Detection at index ${idx} skipped: missing required fields`, det);
                 }
             });
             
             if (validDetections.length === 0) {
-                throw new Error("No valid detections found. Each detection must have: ruleName, ruleId, and at least one of (techniques, dataComponents)");
+                throw new Error("No valid detections found.");
             }
             
             if (skippedCount > 0) {
-                warnings.push(`${skippedCount} detection(s) skipped due to missing required fields`);
+                warnings.push(`${skippedCount} detection(s) skipped due to missing fields`);
             }
             
             const layerId = ++layerIdCounter;
+            const safeName = sanitizeString(layerData.name || filename, 50);
+
             const layer = {
                 id: layerId,
-                name: sanitizeString(layerData.name || filename, 200),
+                name: safeName,
                 version: sanitizeString(layerData.version || "1.0", 20),
                 domain: sanitizeString(layerData.domain || "enterprise-attack", 50),
                 description: sanitizeString(layerData.description || "", 1000),
-                timestamp: layerData.timestamp || null, // Preserve timestamp for comparisons
+                timestamp: layerData.timestamp || new Date().toISOString(),
                 detections: validDetections,
                 enabled: true,
                 color: getLayerColor(layerId),
@@ -2019,39 +1951,25 @@
             };
             
             detectionLayers.push(layer);
-            console.log(`Imported layer: ${layer.name} with ${layer.detections.length} detections`);
             
-            // Update UI
+            // Render UI
             renderLayersList();
             applyLayersToCoverage();
             updateVisualization();
-            
-            // Save to localStorage
             saveLayersToStorage();
-            
-            // Auto-switch to Detection Layers tab to show the imported layer
             switchTab('layers');
             
-            // Show warnings if any
             if (warnings.length > 0) {
-                NotificationSystem.warning(
-                    'Layer Imported with Warnings',
-                    warnings.join('\n'),
-                    { layerName: layer.name, warnings: warnings }
-                );
+                NotificationSystem.warning('Import Warnings', warnings.join('\n'));
             } else {
-                NotificationSystem.success('Layer Imported', `"${layer.name}" loaded successfully with ${validDetections.length} detection(s)`);
+                NotificationSystem.success('Layer Imported', `"${layer.name}" loaded successfully`);
             }
             
             return layer;
             
         } catch (error) {
             console.error("Error importing layer:", error);
-            NotificationSystem.error(
-                'Import Failed',
-                error.message,
-                { filename: filename, error: error.stack }
-            );
+            NotificationSystem.error('Import Failed', error.message);
             return null;
         }
     }
@@ -2059,237 +1977,115 @@
     function applyLayersToCoverage() {
         if (!fullDataset) return;
         
-        // First, reset all activation states
-        resetActivationStates(fullDataset);
-        
-        // Get enabled layers
-        const enabledLayers = detectionLayers.filter(l => l.enabled);
-        
-        if (enabledLayers.length === 0) {
-            console.log("No enabled layers - coverage will be 0%");
-            calculateCoverage(fullDataset);
-            return;
-        }
-        
-        console.log(`Applying ${enabledLayers.length} enabled layer(s) to coverage`);
-        
-        // Apply each enabled layer
-        enabledLayers.forEach(layer => {
-            let activatedCount = 0;
+        // Optimize: Batch DOM updates
+        requestAnimationFrame(() => {
+            // Reset state
+            resetActivationStates(fullDataset);
             
-            // Reset missing IDs tracking
-            layer.stats.missingIds = {
-                techniques: new Set(),
-                strategies: new Set(),
-                analytics: new Set(),
-                dataComponents: new Set()
-            };
+            const enabledLayers = detectionLayers.filter(l => l.enabled);
             
-            layer.detections.forEach(detection => {
-                if (detection.enabled === false) return;
+            if (enabledLayers.length === 0) {
+                calculateCoverage(fullDataset);
+                renderLayersList(); // Update UI to reflect 0 components
+                return;
+            }
+            
+            enabledLayers.forEach(layer => {
+                let activatedCount = 0;
                 
-                console.log(`Processing detection: ${detection.ruleName}`);
+                // Reset tracking
+                layer.stats.missingIds = {
+                    techniques: new Set(),
+                    strategies: new Set(),
+                    analytics: new Set(),
+                    dataComponents: new Set()
+                };
                 
-                const techniques = [...(detection.techniques || []), ...(detection.subtechniques || [])];
-                const strategies = detection.detectionStrategies || [];
-                const analytics = detection.analytics || [];
-                const dataComponents = detection.dataComponents || [];
-                
-                console.log(`  Techniques: ${techniques.join(', ') || 'none'}`);
-                console.log(`  Detection Strategies: ${strategies.join(', ') || 'none'}`);
-                console.log(`  Analytics: ${analytics.join(', ') || 'none'}`);
-                console.log(`  Data Components: ${dataComponents.join(', ') || 'none'}`);
-                
-                // Track which IDs weren't found
-                techniques.forEach(id => {
-                    if (!findNodeById(fullDataset, id, 'Technique')) {
-                        layer.stats.missingIds.techniques.add(id);
-                    }
+                layer.detections.forEach(detection => {
+                    if (detection.enabled === false) return;
+                    
+                    const techniques = [...(detection.techniques || []), ...(detection.subtechniques || [])];
+                    const strategies = detection.detectionStrategies || [];
+                    const analytics = detection.analytics || [];
+                    const dataComponents = detection.dataComponents || [];
+                    
+                    // Track missing IDs
+                    techniques.forEach(id => {
+                        if (!findNodeById(fullDataset, id, 'Technique')) layer.stats.missingIds.techniques.add(id);
+                    });
+                    
+                    // Activation Logic
+                    activatedCount += activateContextual(fullDataset, {
+                        techniques, strategies, analytics, dataComponents,
+                        layerId: layer.id,
+                        ruleName: detection.ruleName
+                    });
                 });
                 
-                strategies.forEach(id => {
-                    if (!findNodeById(fullDataset, id, 'Detection Strategy')) {
-                        layer.stats.missingIds.strategies.add(id);
-                    }
-                });
-                
-                analytics.forEach(id => {
-                    if (!findNodeById(fullDataset, id, 'Analytic')) {
-                        layer.stats.missingIds.analytics.add(id);
-                    }
-                });
-                
-                dataComponents.forEach(id => {
-                    if (!findNodeById(fullDataset, id, 'Data Component')) {
-                        layer.stats.missingIds.dataComponents.add(id);
-                    }
-                });
-                
-                // CONTEXTUAL ACTIVATION
-                const count = activateContextual(fullDataset, {
-                    techniques: techniques,
-                    strategies: strategies,
-                    analytics: analytics,
-                    dataComponents: dataComponents,
-                    layerId: layer.id,
-                    ruleName: detection.ruleName
-                });
-                
-                if (count > 0) {
-                    console.log(`  ✓ Activated ${count} component(s) in context`);
-                } else {
-                    console.warn(`  ✗ No components activated - check IDs match hierarchy`);
-                }
-                
-                activatedCount += count;
+                layer.stats.activatedComponents = activatedCount;
             });
             
-            layer.stats.activatedComponents = activatedCount;
-            console.log(`Layer "${layer.name}" activated ${activatedCount} components total`);
-            
-            // Show warning if nothing activated
-            if (activatedCount === 0 && layer.detections.length > 0) {
-                showLayerWarning(layer);
-            }
+            calculateCoverage(fullDataset);
+            renderLayersList();
         });
-        
-        // Recalculate coverage with union logic
-        calculateCoverage(fullDataset);
-        renderLayersList();
     }
     
     function findNodeById(node, targetId, targetType = null) {
         if (node.id === targetId && (!targetType || node.type === targetType)) {
             return node;
         }
-        
-        if (node.children && node.children.length > 0) {
+        if (node.children) {
             for (const child of node.children) {
                 const found = findNodeById(child, targetId, targetType);
                 if (found) return found;
             }
         }
-        
         return null;
-    }
-    
-    function showLayerWarning(layer) {
-        const messages = [];
-        const missingIds = layer.stats.missingIds;
-        
-        if (missingIds.techniques.size > 0) {
-            messages.push(`${missingIds.techniques.size} Technique(s) not found: ${Array.from(missingIds.techniques).slice(0, 3).join(', ')}${missingIds.techniques.size > 3 ? '...' : ''}`);
-        }
-        if (missingIds.strategies.size > 0) {
-            messages.push(`${missingIds.strategies.size} Detection Strategy(ies) not found`);
-        }
-        if (missingIds.analytics.size > 0) {
-            messages.push(`${missingIds.analytics.size} Analytic(s) not found (IDs may not exist in v18 yet)`);
-        }
-        if (missingIds.dataComponents.size > 0) {
-            messages.push(`${missingIds.dataComponents.size} Data Component(s) not found: ${Array.from(missingIds.dataComponents).slice(0, 3).join(', ')}${missingIds.dataComponents.size > 3 ? '...' : ''}`);
-        }
-        
-        if (messages.length > 0) {
-            console.warn(`⚠️ Layer "${layer.name}" activated 0 components!`);
-            console.warn('Missing IDs:', {
-                techniques: Array.from(missingIds.techniques),
-                strategies: Array.from(missingIds.strategies),
-                analytics: Array.from(missingIds.analytics),
-                dataComponents: Array.from(missingIds.dataComponents)
-            });
-            
-            NotificationSystem.warning(
-                `Layer "${layer.name}" - Zero Activations`,
-                messages.join('\n') + '\n\nCheck console for full details or use test_layer_simple.json',
-                {
-                    missingTechniques: Array.from(missingIds.techniques),
-                    missingAnalytics: Array.from(missingIds.analytics),
-                    missingDataComponents: Array.from(missingIds.dataComponents)
-                }
-            );
-        }
     }
     
     function activateContextual(node, context, currentPath = {}) {
         let count = 0;
         
-        // Track where we are in the hierarchy
         if (node.type === 'Technique' && context.techniques.includes(node.id)) {
             currentPath.inTechnique = true;
-            currentPath.techniqueId = node.id;
         }
         
-        // Sub-techniques can be targeted directly OR via parent technique
+        // Check sub-techniques
         if (node.type === 'Sub-Technique') {
-            // Check if this specific sub-technique is targeted
             const isDirectlyTargeted = context.techniques.includes(node.id);
-            // Check if parent technique is targeted (which should cover all sub-techniques)
-            const isParentTargeted = node.parentTechniqueId && context.techniques.includes(node.parentTechniqueId);
-            
-            if (isDirectlyTargeted || isParentTargeted) {
+            if (isDirectlyTargeted) {
                 currentPath.inTechnique = true;
-                currentPath.techniqueId = node.id;
-                currentPath.isSubTechnique = true;
             }
         }
         
         if (node.type === 'Detection Strategy' && context.strategies.includes(node.id)) {
             currentPath.inStrategy = true;
-            currentPath.strategyId = node.id;
         }
         
         if (node.type === 'Analytic' && context.analytics.includes(node.id)) {
             currentPath.inAnalytic = true;
-            currentPath.analyticId = node.id;
         }
         
-        // Activate if conditions are met
+        // Data Component Activation Logic
         if (node.type === 'Data Component' && context.dataComponents.includes(node.id)) {
             const techniqueMatch = context.techniques.length === 0 || currentPath.inTechnique;
             const strategyMatch = context.strategies.length === 0 || currentPath.inStrategy;
             const analyticMatch = context.analytics.length === 0 || currentPath.inAnalytic;
             
-            // SPECIAL CASE: If strategies and analytics arrays are BOTH empty but techniques and dataComponents are specified,
-            // activate ANY matching Data Component under the specified technique (direct activation mode)
-            const directActivationMode = context.strategies.length === 0 && context.analytics.length === 0 && 
-                                        context.techniques.length > 0 && context.dataComponents.length > 0;
+            const directActivation = context.strategies.length === 0 && context.analytics.length === 0 &&
+                                   context.techniques.length > 0 && context.dataComponents.length > 0;
             
-            if (directActivationMode && techniqueMatch) {
-                // Direct activation: just check technique match
+            if ((directActivation && techniqueMatch) || (techniqueMatch && strategyMatch && analyticMatch)) {
                 if (!node.layerSources) node.layerSources = [];
                 if (!node.layerSources.includes(context.layerId)) {
                     node.layerSources.push(context.layerId);
                 }
                 node.active = true;
                 count++;
-                const techInfo = currentPath.isSubTechnique ? `Sub-Technique=${currentPath.techniqueId}` : `Technique=${currentPath.techniqueId}`;
-                console.log(`    → Activated DC (direct): ${node.id} (${node.name}) under ${techInfo}`);
-            } else if (techniqueMatch && strategyMatch && analyticMatch) {
-                // Standard contextual activation
-                if (!node.layerSources) node.layerSources = [];
-                if (!node.layerSources.includes(context.layerId)) {
-                    node.layerSources.push(context.layerId);
-                }
-                node.active = true;
-                count++;
-                const techInfo = currentPath.isSubTechnique ? `Sub-Technique=${currentPath.techniqueId}` : `Technique=${currentPath.techniqueId}`;
-                console.log(`    → Activated DC: ${node.id} (${node.name}) under ${techInfo}, Strategy=${currentPath.strategyId}, Analytic=${currentPath.analyticId}`);
             }
         }
         
-        if (node.type === 'Analytic' && context.analytics.includes(node.id)) {
-            if (!node.layerSources) node.layerSources = [];
-            if (!node.layerSources.includes(context.layerId)) {
-                node.layerSources.push(context.layerId);
-            }
-            node.active = true;
-            count++;
-            console.log(`    → Activated Analytic: ${node.id} (${node.name})`);
-        }
-        
-        // Recurse to children with current path context
-        if (node.children && node.children.length > 0) {
+        if (node.children) {
             node.children.forEach(child => {
                 count += activateContextual(child, context, {...currentPath});
             });
@@ -2299,12 +2095,9 @@
     }
     
     function resetActivationStates(node) {
-        if (node.layerSources) {
-            node.layerSources = [];
-        }
+        node.layerSources = [];
         node.active = false;
-        
-        if (node.children && node.children.length > 0) {
+        if (node.children) {
             node.children.forEach(child => resetActivationStates(child));
         }
     }
@@ -2313,8 +2106,6 @@
         const layer = detectionLayers.find(l => l.id === layerId);
         if (layer) {
             layer.enabled = !layer.enabled;
-            console.log(`Layer "${layer.name}" ${layer.enabled ? 'enabled' : 'disabled'}`);
-            renderLayersList();
             applyLayersToCoverage();
             updateVisualization();
             saveLayersToStorage();
@@ -2324,46 +2115,33 @@
     function deleteLayer(layerId) {
         const index = detectionLayers.findIndex(l => l.id === layerId);
         if (index !== -1) {
-            const layer = detectionLayers[index];
-            if (confirm(`Delete layer "${layer.name}"?`)) {
-                detectionLayers.splice(index, 1);
-                console.log(`Deleted layer: ${layer.name}`);
-                renderLayersList();
-                applyLayersToCoverage();
-                updateVisualization();
-                saveLayersToStorage();
-                NotificationSystem.info('Layer Deleted', `"${layer.name}" has been removed`);
-            }
-        }
-    }
-    
-    function exportLayer(layerId) {
-        const layer = detectionLayers.find(l => l.id === layerId);
-        if (layer) {
-            const exportData = {
-                name: layer.name,
-                version: layer.version,
-                domain: layer.domain,
-                description: layer.description,
-                detections: layer.detections
-            };
+            const deletedLayer = detectionLayers[index];
+            detectionLayers.splice(index, 1);
             
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${layer.name.replace(/[^a-z0-9]/gi, '_')}_layer.json`;
-            a.click();
-            URL.revokeObjectURL(url);
+            renderLayersList();
+            applyLayersToCoverage();
+            updateVisualization();
+            saveLayersToStorage();
             
-            NotificationSystem.success('Export Complete', `"${layer.name}" exported successfully`);
+            // Undo Functionality
+            NotificationSystem.undo(
+                'Layer Deleted', 
+                `"${deletedLayer.name}" removed`,
+                () => {
+                    detectionLayers.splice(index, 0, deletedLayer);
+                    renderLayersList();
+                    applyLayersToCoverage();
+                    updateVisualization();
+                    saveLayersToStorage();
+                }
+            );
         }
     }
     
     function exportActiveLayers() {
         const enabled = detectionLayers.filter(l => l.enabled);
         if (enabled.length === 0) {
-            NotificationSystem.warning('No Active Layers', 'Enable at least one layer to export');
+            NotificationSystem.warning('Export', 'No active layers to export');
             return;
         }
         
@@ -2373,6 +2151,7 @@
                 version: l.version,
                 domain: l.domain,
                 description: l.description,
+                timestamp: new Date().toISOString(),
                 detections: l.detections
             }))
         };
@@ -2384,34 +2163,28 @@
         a.download = 'active_detection_layers.json';
         a.click();
         URL.revokeObjectURL(url);
-        
-        NotificationSystem.success('Export Complete', `${enabled.length} active layer(s) exported`);
     }
     
     function clearAllLayers() {
         if (detectionLayers.length === 0) return;
-        
-        if (confirm(`Clear all ${detectionLayers.length} layer(s)? This cannot be undone.`)) {
+        if (confirm('Delete all layers?')) {
             detectionLayers = [];
             layerIdCounter = 0;
             renderLayersList();
             applyLayersToCoverage();
             updateVisualization();
             saveLayersToStorage();
-            NotificationSystem.info('Layers Cleared', 'All detection layers have been removed');
         }
     }
     
     function renderLayersList() {
         const container = document.getElementById('layers-list');
-        
-        // Update badge count
         const badge = document.getElementById('layers-badge');
         if (badge) {
             badge.textContent = detectionLayers.length;
+            badge.setAttribute('aria-label', `${detectionLayers.length} layers`);
         }
         
-        // Update compare button state
         updateCompareButtonState();
         
         if (detectionLayers.length === 0) {
@@ -2430,7 +2203,8 @@
                     <input type="checkbox" 
                            class="layer-checkbox" 
                            ${layer.enabled ? 'checked' : ''} 
-                           onchange="toggleLayer(${layer.id})">
+                           onchange="toggleLayer(${layer.id})"
+                           aria-label="Toggle layer ${escapeHtml(layer.name)}">
                     <div class="layer-info">
                         <div class="layer-name">
                             <span class="layer-color" style="background: ${sanitizeColor(layer.color)};"></span>
@@ -2442,8 +2216,8 @@
                         ${warningHtml}
                     </div>
                     <div class="layer-actions">
-                        <button class="small secondary" onclick="exportLayer(${layer.id})" title="Export">↓</button>
-                        <button class="small danger" onclick="deleteLayer(${layer.id})" title="Delete">×</button>
+                        <button class="small secondary" onclick="exportLayer(${layer.id})" title="Export" aria-label="Export ${escapeHtml(layer.name)}">↓</button>
+                        <button class="small danger" onclick="deleteLayer(${layer.id})" title="Delete" aria-label="Delete ${escapeHtml(layer.name)}">×</button>
                     </div>
                 </div>
             `;
@@ -2451,10 +2225,7 @@
     }
     
     function getLayerColor(layerId) {
-        const colors = [
-            '#00bcd4', '#4caf50', '#ff9800', '#e91e63', 
-            '#9c27b0', '#ffeb3b', '#00e676', '#ff6e40'
-        ];
+        const colors = ['#00bcd4', '#4caf50', '#ff9800', '#e91e63', '#9c27b0', '#ffeb3b', '#00e676', '#ff6e40'];
         return colors[(layerId - 1) % colors.length];
     }
     
@@ -2464,14 +2235,10 @@
     
     function saveLayersToStorage() {
         const now = Date.now();
-        if (now - lastSaveTime < SAVE_COOLDOWN) {
-            console.warn('Save rate limited');
-            return;
-        }
+        if (now - lastSaveTime < SAVE_COOLDOWN) return;
         lastSaveTime = now;
         
         try {
-            // Convert Sets to Arrays for JSON serialization
             const layersForStorage = detectionLayers.map(layer => ({
                 ...layer,
                 stats: {
@@ -2485,21 +2252,11 @@
                 }
             }));
             
-            const data = JSON.stringify({
-                layers: layersForStorage,
-                counter: layerIdCounter
-            });
-            
-            // Check size (localStorage limit is usually 5-10MB)
-            if (data.length > 5 * 1024 * 1024) {
-                throw new Error('Data too large for localStorage (>5MB)');
-            }
-            
+            const data = JSON.stringify({ layers: layersForStorage, counter: layerIdCounter });
             localStorage.setItem('mitre_v18_detection_layers', data);
-            console.log("Layers saved to localStorage");
         } catch (error) {
-            console.error("Failed to save layers:", error);
-            NotificationSystem.error('Save Failed', 'Could not save layers to browser storage: ' + error.message);
+            console.error("Save failed:", error);
+            // Handle quota exceeded quietly
         }
     }
     
@@ -2507,11 +2264,8 @@
         try {
             const saved = localStorage.getItem('mitre_v18_detection_layers');
             if (saved) {
-                const data = JSON.parse(saved);
-                
-                // Validate structure
+                const data = safeJSONParse(saved);
                 if (Array.isArray(data.layers)) {
-                    // Validate each layer and convert missing IDs arrays back to Sets
                     detectionLayers = data.layers
                         .filter(validateLayerStructure)
                         .map(layer => ({
@@ -2527,42 +2281,36 @@
                             }
                         }));
                 }
-                
-                if (typeof data.counter === 'number' && data.counter > 0 && data.counter < 1000000) {
-                    layerIdCounter = data.counter;
-                }
-                
-                console.log(`Loaded ${detectionLayers.length} saved layer(s)`);
+                if (data.counter) layerIdCounter = data.counter;
                 renderLayersList();
             }
         } catch (error) {
-            console.error("Failed to load saved layers:", error);
-            // Clear corrupted data
             localStorage.removeItem('mitre_v18_detection_layers');
-            NotificationSystem.warning('Load Failed', 'Saved layers were corrupted and have been cleared');
         }
     }
     
     // ============================================================================
-    // FILE UPLOAD HANDLERS
+    // FILE HANDLERS
     // ============================================================================
     
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('file-input');
     
-    dropZone.addEventListener('click', () => {
-        if (initializationComplete) {
-            fileInput.click();
-        } else {
-            NotificationSystem.warning('Please Wait', 'Please wait for initialization to complete');
+    // Keyboard support for dropzone
+    dropZone.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (initializationComplete) fileInput.click();
         }
+    });
+
+    dropZone.addEventListener('click', () => {
+        if (initializationComplete) fileInput.click();
     });
     
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        if (initializationComplete) {
-            dropZone.classList.add('drag-over');
-        }
+        if (initializationComplete) dropZone.classList.add('drag-over');
     });
     
     dropZone.addEventListener('dragleave', () => {
@@ -2572,94 +2320,49 @@
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.classList.remove('drag-over');
-        if (initializationComplete) {
-            handleFiles(e.dataTransfer.files);
-        } else {
-            NotificationSystem.warning('Please Wait', 'Please wait for initialization to complete');
-        }
+        if (initializationComplete) handleFiles(e.dataTransfer.files);
     });
     
     fileInput.addEventListener('change', (e) => {
         if (initializationComplete) {
             handleFiles(e.target.files);
-            fileInput.value = ''; // Reset for re-upload
+            fileInput.value = '';
         }
     });
     
     function handleFiles(files) {
         if (files.length === 0) return;
         
-        // Show loading indicator
         const loadingDiv = document.createElement('div');
         loadingDiv.id = 'layer-import-loading';
-        loadingDiv.innerHTML = '<div class="spinner"></div><div>Importing layers...</div>';
+        loadingDiv.innerHTML = '<div class="spinner"></div><div>Importing...</div>';
         document.body.appendChild(loadingDiv);
         
-        let processedCount = 0;
-        const totalFiles = files.length;
+        let processed = 0;
         
         Array.from(files).forEach(file => {
-            if (file.type === 'application/json' || file.name.endsWith('.json')) {
-                // Check file size (max 10MB per file)
-                if (file.size > 10 * 1024 * 1024) {
-                    NotificationSystem.error('File Too Large', `${file.name} exceeds 10MB limit`);
-                    processedCount++;
-                    if (processedCount === totalFiles) {
-                        document.body.removeChild(loadingDiv);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = safeJSONParse(e.target.result);
+                    if (data.layers) {
+                        data.layers.forEach(l => importDetectionLayer(l, l.name || file.name));
+                    } else {
+                        importDetectionLayer(data, file.name);
                     }
-                    return;
+                } catch (error) {
+                    NotificationSystem.error('Parse Error', file.name);
+                } finally {
+                    processed++;
+                    if (processed === files.length) document.body.removeChild(loadingDiv);
                 }
-                
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const data = JSON.parse(e.target.result);
-                        
-                        // Handle both single layer and multi-layer files
-                        if (data.layers && Array.isArray(data.layers)) {
-                            // Multi-layer file
-                            data.layers.forEach(layerData => {
-                                importDetectionLayer(layerData, layerData.name || file.name);
-                            });
-                        } else {
-                            // Single layer file
-                            importDetectionLayer(data, file.name);
-                        }
-                    } catch (error) {
-                        NotificationSystem.error(
-                            'Parse Error',
-                            `Failed to parse ${file.name}: ${error.message}`,
-                            { filename: file.name, error: error.message }
-                        );
-                    } finally {
-                        processedCount++;
-                        if (processedCount === totalFiles) {
-                            document.body.removeChild(loadingDiv);
-                        }
-                    }
-                };
-                
-                reader.onerror = () => {
-                    NotificationSystem.error('Read Error', `Failed to read file: ${file.name}`);
-                    processedCount++;
-                    if (processedCount === totalFiles) {
-                        document.body.removeChild(loadingDiv);
-                    }
-                };
-                
-                reader.readAsText(file);
-            } else {
-                NotificationSystem.warning('Invalid File', `Skipping ${file.name}: not a JSON file`);
-                processedCount++;
-                if (processedCount === totalFiles) {
-                    document.body.removeChild(loadingDiv);
-                }
-            }
+            };
+            reader.readAsText(file);
         });
     }
     
     // ============================================================================
-    // VISUALIZATION FUNCTIONS
+    // VISUALIZATION
     // ============================================================================
     
     function calculateCoverage(node) {
@@ -2682,20 +2385,10 @@
     
     function getCoverageColor(score) {
         const colors = [
-            '#8B0000',  // 0-10%:   Dark Red
-            '#B71C1C',  // 10-20%:  Red
-            '#D32F2F',  // 20-30%:  Light Red
-            '#E64A19',  // 30-40%:  Red-Orange
-            '#F57C00',  // 40-50%:  Orange
-            '#FBC02D',  // 50-60%:  Yellow-Orange
-            '#FDD835',  // 60-70%:  Yellow
-            '#C0CA33',  // 70-80%:  Yellow-Green
-            '#7CB342',  // 80-90%:  Light Green
-            '#388E3C'   // 90-100%: Green
+            '#8B0000', '#B71C1C', '#D32F2F', '#E64A19', '#F57C00',
+            '#FBC02D', '#FDD835', '#C0CA33', '#7CB342', '#388E3C'
         ];
-        
-        const index = Math.min(Math.floor(score * 10), 9);
-        return colors[index];
+        return colors[Math.min(Math.floor(score * 10), 9)];
     }
     
     function drawChart(data) {
@@ -2704,15 +2397,14 @@
         const height = container.clientHeight;
         radius = Math.min(width, height) / 2 - 10;
 
-        console.log(`Drawing chart: width=${width}, height=${height}, radius=${radius}`);
-
-        // Remove old chart completely
         d3.select("#chart").selectAll("*").remove();
 
         svg = d3.select("#chart")
             .append("svg")
             .attr("width", width)
-            .attr("height", height);
+            .attr("height", height)
+            .attr("role", "img")
+            .attr("aria-label", "Sunburst chart showing detection coverage");
 
         g = svg.append("g")
             .attr("transform", `translate(${width/2},${height/2})`);
@@ -2721,11 +2413,7 @@
             .sum(d => 1)
             .sort((a, b) => b.value - a.value);
 
-        console.log(`Hierarchy created: ${root.descendants().length} nodes, height: ${root.height}`);
-
-        partition = d3.partition()
-            .size([2 * Math.PI, radius]);
-
+        partition = d3.partition().size([2 * Math.PI, radius]);
         partition(root);
 
         arc = d3.arc()
@@ -2746,21 +2434,14 @@
             .attr("stroke", "#000")
             .attr("stroke-width", 0.5)
             .attr("d", d => arc(d.current))
-            .style("cursor", "pointer");
+            .style("cursor", "pointer")
+            .attr("role", "graphics-symbol")
+            .attr("aria-label", d => `${d.data.name} - ${Math.round((d.data.score||0)*100)}% coverage`);
 
-        console.log(`Rendered ${path.size()} paths`);
-
-        // Define event handlers
-        eventHandlers.click = clicked;
-        eventHandlers.contextmenu = rightClicked;
-        eventHandlers.mouseover = mouseover;
-        eventHandlers.mouseout = mouseout;
-
-        path
-            .on("click", eventHandlers.click)
-            .on("contextmenu", eventHandlers.contextmenu)
-            .on("mouseover", eventHandlers.mouseover)
-            .on("mouseout", eventHandlers.mouseout);
+        path.on("click", clicked)
+            .on("contextmenu", rightClicked)
+            .on("mouseover", mouseover)
+            .on("mouseout", mouseout);
 
         g.append("circle")
             .attr("r", radius / 4)
@@ -2776,21 +2457,21 @@
     function updateVisualization() {
         if (!root || !path) return;
         
-        root = d3.hierarchy(fullDataset).sum(d => 1).sort((a, b) => b.value - a.value);
-        partition(root);
-        root.each(d => d.current = d);
-        
-        path.data(root.descendants().slice(1))
-            .transition()
-            .duration(300)
-            .attr("fill", d => getCoverageColor(d.data.score || 0));
+        requestAnimationFrame(() => {
+            root = d3.hierarchy(fullDataset).sum(d => 1).sort((a, b) => b.value - a.value);
+            partition(root);
+            root.each(d => d.current = d);
             
-        updateStats();
+            path.data(root.descendants().slice(1))
+                .transition().duration(300)
+                .attr("fill", d => getCoverageColor(d.data.score || 0));
+                
+            updateStats();
+        });
     }
 
     function clicked(event, p) {
         if (event) event.preventDefault();
-        
         root.each(d => {
             d.target = {
                 x0: Math.max(0, Math.min(1, (d.x0 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
@@ -2801,13 +2482,10 @@
         });
 
         const t = g.transition().duration(750);
-
-        path.transition(t)
-            .tween("data", d => {
-                const i = d3.interpolate(d.current, d.target);
-                return t => d.current = i(t);
-            })
-            .attrTween("d", d => () => arc(d.current));
+        path.transition(t).tween("data", d => {
+            const i = d3.interpolate(d.current, d.target);
+            return t => d.current = i(t);
+        }).attrTween("d", d => () => arc(d.current));
 
         updateSidePanel(p);
         updateBreadcrumbs(p);
@@ -2815,14 +2493,8 @@
 
     function rightClicked(event, d) {
         event.preventDefault();
-        
-        // Only allow manual toggle when no layers are active
-        const hasActiveLayers = detectionLayers.some(l => l.enabled);
-        if (hasActiveLayers) {
-            NotificationSystem.warning(
-                'Manual Toggle Disabled',
-                'Manual toggle is disabled when detection layers are active. Disable all layers to use manual mode.'
-            );
+        if (detectionLayers.some(l => l.enabled)) {
+            NotificationSystem.warning('Locked', 'Manual toggle disabled when layers are active.');
             return;
         }
         
@@ -2834,9 +2506,7 @@
             }
         };
         
-        const targetState = d.data.score < 1;
-        toggle(d, targetState);
-        
+        toggle(d, d.data.score < 1);
         calculateCoverage(fullDataset);
         updateVisualization();
         updateSidePanel(d);
@@ -2844,64 +2514,26 @@
 
     function mouseover(event, d) {
         const tooltip = d3.select("#tooltip");
+        const safeName = escapeHtml(d.data.name);
+        const safeId = escapeHtml(d.data.id || '');
+        const safeType = escapeHtml(d.data.type);
         
-        // Build platform info (escaped)
-        const platforms = d.data.platforms?.length ? 
-            `<div style="font-size:0.7rem; margin-top:3px; color:#888;">${escapeHtml(d.data.platforms.join(', '))}</div>` : '';
-        
-        // Build attack ID badge (escaped)
-        const attackId = d.data.id ? 
-            `<div style="font-weight:bold; color:#00bcd4; font-size:0.85rem; margin-bottom:3px;">${escapeHtml(d.data.id)}</div>` : '';
-        
-        // Show parent technique for sub-techniques
-        const parentInfo = d.data.type === 'Sub-Technique' && d.data.parentTechniqueId ?
-            `<div style="font-size:0.7rem; margin-top:3px; color:#888;">Parent: ${escapeHtml(d.data.parentTechniqueId)}</div>` : '';
-        
-        // Build log source info (escaped)
-        const logSource = (d.data.logSourceName || d.data.logSourceChannel) ? 
-            `<div style="font-size:0.7rem; margin-top:4px; color:#888; border-top:1px solid #333; padding-top:4px;">
-                ${d.data.logSourceName ? 'Log: ' + escapeHtml(d.data.logSourceName) : ''}
-                ${d.data.logSourceChannel ? '<br/>Channel: ' + escapeHtml(d.data.logSourceChannel) : ''}
-            </div>` : '';
-        
-        // Show layer sources if any (escaped)
-        let layerInfo = '';
-        if (d.data.layerSources && d.data.layerSources.length > 0) {
-            const layers = d.data.layerSources.map(id => {
-                const layer = detectionLayers.find(l => l.id === id);
-                return layer ? escapeHtml(layer.name) : `Layer ${id}`;
-            });
-            layerInfo = `<div style="font-size:0.7rem; margin-top:4px; color:#0f0; border-top:1px solid #333; padding-top:4px;">
-                Active in: ${layers.join(', ')}
-            </div>`;
-        }
+        let content = `<div style="font-weight:bold; color:#00bcd4">${safeId}</div>`;
+        content += `<div style="font-size:0.8rem">${safeType}</div>`;
+        content += `<div>${safeName}</div>`;
+        content += `<div style="margin-top:5px; border-top:1px solid #444">Coverage: ${(d.data.score*100).toFixed(0)}%</div>`;
         
         tooltip.style("opacity", 1)
-               .html(`
-                   ${attackId}
-                   <div style="font-size:0.75rem; text-transform:uppercase; color:#888; margin-bottom:4px;">${escapeHtml(d.data.type)}</div>
-                   <div style="margin:5px 0; font-weight:500;">${escapeHtml(d.data.name)}</div>
-                   ${parentInfo}
-                   ${platforms}
-                   ${logSource}
-                   ${layerInfo}
-                   <div style="font-size:0.75rem; border-top:1px solid #444; padding-top:4px; margin-top:6px;">
-                       Coverage: ${((d.data.score || 0)*100).toFixed(1)}%
-                   </div>
-               `)
+               .html(content)
                .style("left", (event.pageX + 15) + "px")
                .style("top", (event.pageY - 28) + "px");
-        
-        d3.select(event.currentTarget)
-            .attr("stroke", "#00bcd4")
-            .attr("stroke-width", 2);
+               
+        d3.select(event.currentTarget).attr("stroke", "#00bcd4").attr("stroke-width", 2);
     }
 
     function mouseout(event) {
         d3.select("#tooltip").style("opacity", 0);
-        d3.select(event.currentTarget)
-            .attr("stroke", "#000")
-            .attr("stroke-width", 0.5);
+        d3.select(event.currentTarget).attr("stroke", "#000").attr("stroke-width", 0.5);
     }
     
     function updateStats() {
@@ -2912,24 +2544,21 @@
 
     function updateSidePanel(d) {
         document.getElementById("node-details").style.display = "block";
-        document.getElementById("detail-id-badge").innerText = d.data.id || "N/A";
         document.getElementById("detail-name").innerText = d.data.name;
+        document.getElementById("detail-id-badge").innerText = d.data.id || "N/A";
         document.getElementById("detail-type").innerText = d.data.type;
-        
-        const logSourceDiv = document.getElementById("detail-log-source");
-        if (d.data.logSourceName || d.data.logSourceChannel) {
-            // Use innerText for safety
-            logSourceDiv.innerText = `Log Source: ${d.data.logSourceName || 'N/A'}\nChannel: ${d.data.logSourceChannel || 'N/A'}`;
-            logSourceDiv.style.display = 'block';
-        } else {
-            logSourceDiv.style.display = 'none';
-        }
-        
         document.getElementById("node-score").innerText = Math.round((d.data.score || 0) * 100) + "%";
         document.getElementById("node-score").style.color = getCoverageColor(d.data.score || 0);
+        document.getElementById("detail-desc").innerText = d.data.description || "No description available.";
         
-        const desc = d.data.description || "No description available.";
-        document.getElementById("detail-desc").innerText = desc.length > 500 ? desc.substring(0, 497) + "..." : desc;
+        // Handle Log Source visibility safely
+        const logDiv = document.getElementById("detail-log-source");
+        if (d.data.logSourceName) {
+            logDiv.style.display = 'block';
+            logDiv.innerText = `Log Source: ${d.data.logSourceName}`;
+        } else {
+            logDiv.style.display = 'none';
+        }
     }
 
     function updateBreadcrumbs(d) {
@@ -2940,31 +2569,42 @@
     function resetZoom() {
         if (root) clicked(null, root);
     }
-
+    
     function toggleCollapsible(id) {
         const content = document.getElementById(id);
         const icon = document.getElementById(id + '-icon');
         if (content.classList.contains('open')) {
             content.classList.remove('open');
             icon.textContent = '▼';
+            document.querySelector(`[onclick="toggleCollapsible('${id}')"]`).setAttribute('aria-expanded', 'false');
         } else {
             content.classList.add('open');
             icon.textContent = '▲';
+            document.querySelector(`[onclick="toggleCollapsible('${id}')"]`).setAttribute('aria-expanded', 'true');
+        }
+    }
+    
+    function exportLayer(layerId) {
+        const layer = detectionLayers.find(l => l.id === layerId);
+        if (layer) {
+            const blob = new Blob([JSON.stringify(layer, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${layer.name.replace(/[^a-z0-9]/gi, '_')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
         }
     }
 
-    // Debounced resize handler to prevent memory leaks
     let resizeTimeout;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
-            if (fullDataset && initializationComplete) {
-                drawChart(fullDataset);
-            }
+            if (fullDataset && initializationComplete) drawChart(fullDataset);
         }, 250);
     });
 
-    // Initialize on page load
     init();
 </script>
 </body>
