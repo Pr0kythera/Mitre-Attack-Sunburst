@@ -1,0 +1,113 @@
+{
+  "name": "Q1 2026 Detection Coverage",
+  "version": "1.0",
+  "domain": "enterprise-attack",
+  "description": "Detection coverage snapshot from Q1 2026 - Improved Coverage",
+  "timestamp": "2026-01-06T23:15:36",
+  "detections": [
+    {
+      "ruleName": "Brute Force Detection - Volume Based",
+      "ruleId": "Q4-BF-001",
+      "tactics": ["credential-access"],
+      "techniques": ["T1110"],
+      "subtechniques": [],
+      "detectionStrategies": ["DET0463"],
+      "analytics": ["AN1275"],
+      "dataComponents": ["DC0002"],
+      "tables": ["SigninLogs"],
+      "score": 1.0,
+      "enabled": true
+    },
+    {
+      "ruleName": "Process Creation - Suspicious Commands",
+      "ruleId": "Q4-PC-001",
+      "tactics": ["execution"],
+      "techniques": ["T1059"],
+      "subtechniques": [],
+      "detectionStrategies": ["DET0516"],
+      "analytics": ["AN1429"],
+      "dataComponents": ["DC0032"],
+      "tables": ["DeviceProcessEvents"],
+      "score": 1.0,
+      "enabled": true
+    },
+    {
+      "ruleName": "Credential Dumping - LSASS Access",
+      "ruleId": "Q4-CD-001",
+      "tactics": ["credential-access"],
+      "techniques": ["T1003"],
+      "subtechniques": ["T1003.001"],
+      "detectionStrategies": ["DET0363"],
+      "analytics": ["AN1030"],
+      "dataComponents": ["DC0039"],
+      "tables": ["DeviceProcessEvents"],
+      "score": 1.0,
+      "enabled": true
+    },
+    {
+      "ruleName": "Network Service Discovery",
+      "ruleId": "Q1-NSD-001",
+      "tactics": ["discovery"],
+      "techniques": ["T1046"],
+      "subtechniques": [],
+      "detectionStrategies": ["DET0376"],
+      "analytics": ["AN1060"],
+      "dataComponents": ["DC0032"],
+      "tables": ["DeviceNetworkEvents"],
+      "score": 1.0,
+      "enabled": true
+    },
+    {
+      "ruleName": "File Deletion - Indicator Removal",
+      "ruleId": "Q1-FD-001",
+      "tactics": ["defense-evasion"],
+      "techniques": ["T1070"],
+      "subtechniques": ["T1070.004"],
+      "detectionStrategies": ["DET0140"],
+      "analytics": ["AN0393"],
+      "dataComponents": ["DC0040"],
+      "tables": ["DeviceFileEvents"],
+      "score": 1.0,
+      "enabled": true
+    },
+    {
+      "ruleName": "Registry Modification - Persistence",
+      "ruleId": "Q1-RM-001",
+      "tactics": ["persistence"],
+      "techniques": ["T1547"],
+      "subtechniques": ["T1547.001"],
+      "detectionStrategies": ["DET0140"],
+      "analytics": ["AN0395"],
+      "dataComponents": ["DC0040"],
+      "tables": ["DeviceRegistryEvents"],
+      "score": 1.0,
+      "enabled": true
+    },
+    {
+      "ruleName": "Scheduled Task Creation",
+      "ruleId": "Q1-ST-001",
+      "tactics": ["persistence"],
+      "techniques": ["T1053"],
+      "subtechniques": ["T1053.005"],
+      "detectionStrategies": ["DET0441"],
+      "analytics": ["AN1221"],
+      "dataComponents": ["DC0001"],
+      "tables": ["DeviceProcessEvents"],
+      "score": 1.0,
+      "enabled": true
+    },
+    {
+      "ruleName": "DLL Injection Detection",
+      "ruleId": "Q1-DI-001",
+      "tactics": ["defense-evasion", "privilege-escalation"],
+      "techniques": ["T1055"],
+      "subtechniques": ["T1055.001"],
+      "detectionStrategies": ["DET0389"],
+      "analytics": ["AN1095"],
+      "dataComponents": ["DC0048"],
+      "tables": ["DeviceProcessEvents"],
+      "score": 1.0,
+      "enabled": true
+    }
+  ]
+}

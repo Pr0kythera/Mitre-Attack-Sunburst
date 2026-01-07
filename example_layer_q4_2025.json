@@ -1,0 +1,35 @@
+{
+  "name": "Q4 2025 Detection Coverage",
+  "version": "1.0",
+  "domain": "enterprise-attack",
+  "description": "Detection coverage snapshot from Q4 2025 - Baseline",
+  "timestamp": "2025-12-15T10:30:00",
+  "detections": [
+    {
+      "ruleName": "Brute Force Detection - Volume Based",
+      "ruleId": "Q4-BF-001",
+      "tactics": ["credential-access"],
+      "techniques": ["T1110"],
+      "subtechniques": [],
+      "detectionStrategies": ["DET0463"],
+      "analytics": ["AN1275"],
+      "dataComponents": ["DC0002"],
+      "tables": ["SigninLogs"],
+      "score": 1.0,
+      "enabled": true
+    },
+    {
+      "ruleName": "Process Creation - Suspicious Commands",
+      "ruleId": "Q4-PC-001",
+      "tactics": ["execution"],
+      "techniques": ["T1059"],
+      "subtechniques": [],
+      "detectionStrategies": ["DET0516"],
+      "analytics": ["AN1429"],
+      "dataComponents": ["DC0032"],
+      "tables": ["DeviceProcessEvents"],
+      "score": 1.0,
+      "enabled": true
+    }
+  ]
+}
