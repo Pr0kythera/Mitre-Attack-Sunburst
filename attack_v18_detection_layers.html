@@ -2528,6 +2528,7 @@
             .style("cursor", "pointer")
             .on("click", () => clicked(null, root));
 
+        calculateCoverage(data);
         updateStats();
     }
 
@@ -2546,6 +2547,7 @@
                 .transition().duration(300)
                 .attr("fill", d => getCoverageColor(d.data.score || 0));
 
+            calculateCoverage(fullDataset);
             updateStats();
         });
     }
