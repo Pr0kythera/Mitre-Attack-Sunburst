@@ -2449,6 +2449,22 @@
         return colors[Math.min(Math.floor(score * 10), 9)];
     }
     
+    // Filter nodes to visible depth range to prevent rendering performance issues
+    function getVisibleDescendants(node, maxDepth = 6, currentDepth = 0) {
+        const visible = [];
+
+        function traverse(n, depth) {
+            if (depth > maxDepth) return;
+            visible.push(n);
+            if (n.children) {
+                n.children.forEach(child => traverse(child, depth + 1));
+            }
+        }
+
+        traverse(node, currentDepth);
+        return visible.slice(1); // Skip root
+    }
+
     function drawChart(data) {
         const container = document.getElementById("chart");
         const width = container.clientWidth;
@@ -2483,9 +2499,12 @@
 
         root.each(d => d.current = d);
 
+        // Use filtered descendants to prevent rendering thousands of nodes
+        const visibleNodes = getVisibleDescendants(root);
+
         path = g.append("g")
             .selectAll("path")
-            .data(root.descendants().slice(1))
+            .data(visibleNodes, d => d.data.id)
             .join("path")
             .attr("fill", d => getCoverageColor(d.data.score || 0))
             .attr("fill-opacity", 0.85)
@@ -2514,16 +2533,19 @@
 
     function updateVisualization() {
         if (!root || !path) return;
-        
+
         requestAnimationFrame(() => {
             root = d3.hierarchy(fullDataset).sum(d => 1).sort((a, b) => b.value - a.value);
             partition(root);
             root.each(d => d.current = d);
-            
-            path.data(root.descendants().slice(1))
+
+            // Use filtered descendants to prevent rendering performance issues
+            const visibleNodes = getVisibleDescendants(root);
+
+            path.data(visibleNodes, d => d.data.id)
                 .transition().duration(300)
                 .attr("fill", d => getCoverageColor(d.data.score || 0));
-                
+
             updateStats();
         });
     }
