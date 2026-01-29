@@ -3030,11 +3030,44 @@
         if (!result || !result.node) return;
 
         const node = result.node;
+        
+        // Always reset to root first, then navigate to target
+        // This ensures the math in clicked() works correctly
+        const needsReset = root.descendants().some(d => 
+            d.current && d.current.y0 === 0 && d !== root
+        );
+        
+        if (needsReset) {
+            // Two-step navigation: reset to root, then go to target
+            clicked(null, root);
+            
+            setTimeout(() => {
+                // Now navigate to the actual target
+                clicked(null, node);
+                
+                // Highlight after zoom animation completes
+                setTimeout(() => {
+                    highlightNode(node);
+                }, 800);
+            }, 800);
+        } else {
+            // We're already at root, direct navigation is safe
+            clicked(null, node);
+            
+            // Highlight after zoom animation completes
+            setTimeout(() => {
+                highlightNode(node);
+            }, 800);
+        }
 
-        // Trigger the click navigation to zoom to this node
-        clicked(null, node);
+        const typeLabel = result.type.replace('-', ' ');
+        NotificationSystem.info('Navigated', `Zoomed to ${typeLabel}: ${result.name}`);
+    }
 
-        // Also flash/highlight the node briefly
+    /**
+     * Highlight a specific node with a visual pulse
+     */
+    function highlightNode(node) {
         const targetPath = path.filter(p => p === node);
         if (targetPath.size() > 0) {
             targetPath
@@ -3045,8 +3078,6 @@
                 .attr('stroke', '#000')
                 .attr('stroke-width', 0.5);
         }
-
-        NotificationSystem.info('Navigated', `Zoomed to ${result.type}: ${result.name}`);
     }
 
     function resetZoom() {
