@@ -1697,7 +1697,9 @@
             throw new Error("Invalid STIX data structure");
         }
         
-        const objects = stixData.objects;
+        const objects = stixData.objects.filter(obj => 
+        !obj.revoked && !obj.x_mitre_deprecated
+        );
         
         // Index all objects by ID and external ID
         const objectMap = {};
@@ -2490,13 +2492,22 @@
         partition = d3.partition().size([2 * Math.PI, radius]);
         partition(root);
 
-        arc = d3.arc()
-            .startAngle(d => d.x0)
-            .endAngle(d => d.x1)
-            .padAngle(0.005)
-            .innerRadius(d => d.y0)
-            .outerRadius(d => d.y1);
-
+       arc = d3.arc()
+        .startAngle(d => d.x0)
+        .endAngle(d => {
+            // VISUAL FIX: Enforce minimum width
+            const minWidth = 0.05; // ~0.5 degrees. Adjust as needed.
+            const actualWidth = d.x1 - d.x0;
+            
+            // If the slice is too thin, artificially widen it
+            if (actualWidth < minWidth && actualWidth > 0) {
+                return d.x0 + minWidth;
+            }
+            return d.x1;
+        })
+        .padAngle(d => (d.x1 - d.x0) < 0.012 ? 0 : 0.002) // Dynamic padding from previous step
+        .innerRadius(d => d.y0)
+        .outerRadius(d => d.y1);
         root.each(d => d.current = d);
 
         // Use filtered descendants to prevent rendering thousands of nodes
@@ -2504,10 +2515,10 @@
 
         path = g.append("g")
             .selectAll("path")
-            .data(visibleNodes, d => d.data.id)
+            .data(visibleNodes, d => d.ancestors().map(n => n.data.id).reverse().join("."))
             .join("path")
             .attr("fill", d => getCoverageColor(d.data.score || 0))
-            .attr("fill-opacity", 0.85)
+            .attr("fill-opacity", 0.95)
             .attr("stroke", "#000")
             .attr("stroke-width", 0.5)
             .attr("d", d => arc(d.current))
@@ -2543,7 +2554,7 @@
             // Use filtered descendants to prevent rendering performance issues
             const visibleNodes = getVisibleDescendants(root);
 
-            path.data(visibleNodes, d => d.data.id)
+            path.data(visibleNodes, d => d.ancestors().map(n => n.data.id).reverse().join("."))
                 .transition().duration(300)
                 .attr("fill", d => getCoverageColor(d.data.score || 0));
 
