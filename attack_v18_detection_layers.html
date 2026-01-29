@@ -268,6 +268,127 @@
             margin-top: 2px;
         }
 
+        /* Search Component */
+        .search-container {
+            position: relative;
+            margin-top: 15px;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 12px;
+            padding-right: 36px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-color);
+            font-size: 0.9rem;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .search-input::placeholder {
+            color: #666;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 10px;
+            color: #666;
+            pointer-events: none;
+            font-size: 0.9rem;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 300px;
+            overflow-y: auto;
+            background: var(--panel-bg);
+            border: 1px solid var(--accent-color);
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            z-index: 100;
+            display: none;
+        }
+
+        .search-results.active {
+            display: block;
+        }
+
+        .search-result-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.15s;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item.selected {
+            background: rgba(0, 188, 212, 0.15);
+        }
+
+        .search-result-id {
+            font-size: 0.75rem;
+            color: var(--accent-color);
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .search-result-name {
+            font-size: 0.85rem;
+            color: #fff;
+        }
+
+        .search-result-path {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 3px;
+        }
+
+        .search-result-type {
+            display: inline-block;
+            font-size: 0.65rem;
+            padding: 2px 5px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #aaa;
+            margin-left: 5px;
+            text-transform: uppercase;
+        }
+
+        .search-no-results {
+            padding: 15px;
+            text-align: center;
+            color: #888;
+            font-size: 0.85rem;
+        }
+
+        .search-label {
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
         /* Layer Management */
         .layer-item {
             background: rgba(255,255,255,0.05);
@@ -789,6 +910,20 @@
                 <div style="margin-top: 5px; font-size: 0.8rem; color: #888;">
                     <span id="active-components">0</span> / <span id="total-components">0</span> Data Components Active
                 </div>
+            </div>
+
+            <div class="search-container">
+                <div class="search-label">Search Tactics & Techniques</div>
+                <div class="search-input-wrapper">
+                    <input type="text"
+                           id="tactic-technique-search"
+                           class="search-input"
+                           placeholder="Search by name or ID (e.g., T1059, Phishing)..."
+                           autocomplete="off"
+                           aria-label="Search for tactics and techniques">
+                    <span class="search-icon">&#128269;</span>
+                </div>
+                <div id="search-results" class="search-results" role="listbox" aria-label="Search results"></div>
             </div>
 
             <div id="node-details" style="display:none; margin-top: 20px;" aria-live="polite">
@@ -1650,7 +1785,8 @@
                 
                 applyLayersToCoverage();
                 drawChart(fullDataset);
-                
+                initSearchFunctionality();
+
                 initializationComplete = true;
                 document.getElementById("loader").style.display = "none";
                 console.log("Visualization complete");
@@ -2658,7 +2794,261 @@
         const sequence = d.ancestors().reverse().map(d => d.data.name).join(" > ");
         document.getElementById("breadcrumbs").innerText = sequence;
     }
-    
+
+    // ============================================================================
+    // SEARCH FUNCTIONALITY
+    // ============================================================================
+
+    let searchSelectedIndex = -1;
+    let searchResults = [];
+
+    /**
+     * Initialize search functionality
+     */
+    function initSearchFunctionality() {
+        const searchInput = document.getElementById('tactic-technique-search');
+        const resultsContainer = document.getElementById('search-results');
+
+        if (!searchInput || !resultsContainer) return;
+
+        let debounceTimer;
+
+        // Input event for searching
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            const query = e.target.value.trim();
+
+            if (query.length < 2) {
+                hideSearchResults();
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                searchResults = searchTacticsAndTechniques(query);
+                displaySearchResults(searchResults);
+            }, 200);
+        });
+
+        // Keyboard navigation
+        searchInput.addEventListener('keydown', (e) => {
+            if (!resultsContainer.classList.contains('active')) return;
+
+            const items = resultsContainer.querySelectorAll('.search-result-item');
+
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    searchSelectedIndex = Math.min(searchSelectedIndex + 1, items.length - 1);
+                    updateSelectedItem(items);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    searchSelectedIndex = Math.max(searchSelectedIndex - 1, 0);
+                    updateSelectedItem(items);
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (searchSelectedIndex >= 0 && searchResults[searchSelectedIndex]) {
+                        navigateToNode(searchResults[searchSelectedIndex]);
+                        hideSearchResults();
+                        searchInput.blur();
+                    }
+                    break;
+                case 'Escape':
+                    hideSearchResults();
+                    searchInput.blur();
+                    break;
+            }
+        });
+
+        // Focus event
+        searchInput.addEventListener('focus', () => {
+            if (searchInput.value.trim().length >= 2 && searchResults.length > 0) {
+                resultsContainer.classList.add('active');
+            }
+        });
+
+        // Click outside to close
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-container')) {
+                hideSearchResults();
+            }
+        });
+    }
+
+    /**
+     * Update visual selection state
+     */
+    function updateSelectedItem(items) {
+        items.forEach((item, index) => {
+            if (index === searchSelectedIndex) {
+                item.classList.add('selected');
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+
+    /**
+     * Hide search results dropdown
+     */
+    function hideSearchResults() {
+        const resultsContainer = document.getElementById('search-results');
+        if (resultsContainer) {
+            resultsContainer.classList.remove('active');
+            resultsContainer.innerHTML = '';
+        }
+        searchSelectedIndex = -1;
+    }
+
+    /**
+     * Search for tactics and techniques by name or ID
+     */
+    function searchTacticsAndTechniques(query) {
+        if (!root) return [];
+
+        const results = [];
+        const queryLower = query.toLowerCase();
+        const seen = new Set();
+
+        // Traverse the D3 hierarchy to find matches
+        root.each(d => {
+            const data = d.data;
+            const type = data.type;
+
+            // Only search tactics and techniques (including sub-techniques)
+            if (type !== 'Tactic' && type !== 'Technique' && type !== 'Sub-Technique') {
+                return;
+            }
+
+            const name = (data.name || '').toLowerCase();
+            const id = (data.id || '').toLowerCase();
+
+            // Check if query matches name or ID
+            if (name.includes(queryLower) || id.includes(queryLower)) {
+                // Build the path from ancestors
+                const path = d.ancestors()
+                    .reverse()
+                    .slice(1) // Skip root
+                    .map(a => a.data.name)
+                    .join(' > ');
+
+                // Create unique key to handle techniques appearing in multiple tactics
+                const uniqueKey = `${data.id}-${path}`;
+
+                if (!seen.has(uniqueKey)) {
+                    seen.add(uniqueKey);
+                    results.push({
+                        id: data.id,
+                        name: data.name,
+                        type: type,
+                        path: path,
+                        node: d
+                    });
+                }
+            }
+        });
+
+        // Sort results: exact ID matches first, then by type (Tactics, Techniques, Sub-Techniques)
+        results.sort((a, b) => {
+            // Exact ID match takes priority
+            const aExact = a.id.toLowerCase() === queryLower;
+            const bExact = b.id.toLowerCase() === queryLower;
+            if (aExact && !bExact) return -1;
+            if (!aExact && bExact) return 1;
+
+            // Then sort by type
+            const typeOrder = { 'Tactic': 0, 'Technique': 1, 'Sub-Technique': 2 };
+            const typeCompare = (typeOrder[a.type] || 99) - (typeOrder[b.type] || 99);
+            if (typeCompare !== 0) return typeCompare;
+
+            // Then alphabetically by name
+            return a.name.localeCompare(b.name);
+        });
+
+        return results.slice(0, 50); // Limit results
+    }
+
+    /**
+     * Display search results in the dropdown
+     */
+    function displaySearchResults(results) {
+        const resultsContainer = document.getElementById('search-results');
+        if (!resultsContainer) return;
+
+        searchSelectedIndex = -1;
+
+        if (results.length === 0) {
+            resultsContainer.innerHTML = '<div class="search-no-results">No matching tactics or techniques found</div>';
+            resultsContainer.classList.add('active');
+            return;
+        }
+
+        let html = '';
+        results.forEach((result, index) => {
+            const safeId = escapeHtml(result.id);
+            const safeName = escapeHtml(result.name);
+            const safePath = escapeHtml(result.path);
+            const safeType = escapeHtml(result.type);
+
+            html += `
+                <div class="search-result-item"
+                     role="option"
+                     data-index="${index}"
+                     tabindex="-1">
+                    <div class="search-result-id">
+                        ${safeId}
+                        <span class="search-result-type">${safeType}</span>
+                    </div>
+                    <div class="search-result-name">${safeName}</div>
+                    <div class="search-result-path">${safePath}</div>
+                </div>
+            `;
+        });
+
+        resultsContainer.innerHTML = html;
+        resultsContainer.classList.add('active');
+
+        // Add click handlers to each result
+        resultsContainer.querySelectorAll('.search-result-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const index = parseInt(item.dataset.index, 10);
+                if (results[index]) {
+                    navigateToNode(results[index]);
+                    hideSearchResults();
+                    document.getElementById('tactic-technique-search').value = '';
+                }
+            });
+        });
+    }
+
+    /**
+     * Navigate to a node in the visualization
+     */
+    function navigateToNode(result) {
+        if (!result || !result.node) return;
+
+        const node = result.node;
+
+        // Trigger the click navigation to zoom to this node
+        clicked(null, node);
+
+        // Also flash/highlight the node briefly
+        const targetPath = path.filter(p => p === node);
+        if (targetPath.size() > 0) {
+            targetPath
+                .attr('stroke', '#fff')
+                .attr('stroke-width', 3)
+                .transition()
+                .duration(1500)
+                .attr('stroke', '#000')
+                .attr('stroke-width', 0.5);
+        }
+
+        NotificationSystem.info('Navigated', `Zoomed to ${result.type}: ${result.name}`);
+    }
+
     function resetZoom() {
         if (root) clicked(null, root);
     }
